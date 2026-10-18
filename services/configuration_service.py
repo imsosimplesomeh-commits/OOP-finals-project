@@ -62,7 +62,7 @@ class ConfigurationService:
             raise ValueError("Cannot delete this component because grading weights depend on it.")
         return self.components.delete_by_id(component_id)
 
-    def save_weights(self, class_id, period_id, values):
+    def save_weights(self, class_id, period_id, values, changed_by=None):
         if not class_id or not self.classes.find_by_id(class_id):
             raise ValueError("Select an existing class first.")
         if not period_id or not self.periods.find_by_id(period_id):
@@ -80,7 +80,7 @@ class ConfigurationService:
         valid, message = GradeCalculator.validate_weights([weight for _, weight in parsed])
         if not valid:
             raise ValueError(message)
-        self.weights.save_period(class_id, parsed)
+        self.weights.save_period(class_id, parsed, changed_by=changed_by)
         return "Period weights saved."
 
     def weight_summary(self, class_id):

@@ -1,6 +1,7 @@
 # repositories/__init__.py - exports all repository classes
 
 from repositories.base_repository import Repository
+from repositories.audit_repository import AuditRepository
 from repositories.student_repository import StudentRepository
 from repositories.teacher_repository import TeacherRepository
 from repositories.subject_repository import SubjectRepository
@@ -14,6 +15,7 @@ from repositories.grade_repository import GradeRepository
 
 __all__ = [
     "Repository",
+    "AuditRepository",
     "StudentRepository",
     "TeacherRepository",
     "SubjectRepository",

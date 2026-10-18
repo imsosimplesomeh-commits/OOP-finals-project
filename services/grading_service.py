@@ -58,13 +58,13 @@ class GradingService:
             return False, str(error)
         return True, "Valid percentage configuration."
 
-    def compute_student_grades(self, enrollment_id, offering_id, midterm_weight=40.0, finals_weight=60.0):
+    def compute_student_grades(self, enrollment_id, offering_id, midterm_weight=40.0, finals_weight=60.0, connection=None):
         self.validate_overall_weights(midterm_weight, finals_weight)
         enrollment = self.enrollment_repo.find_by_id(enrollment_id)
         if enrollment is None or str(enrollment.class_id) != str(offering_id):
             raise ValueError("Select a student enrolled in this class.")
         groups = self._load_period_components(offering_id)
-        scores = {str(s.component_id): s.score for s in self.score_repo.find_by_enrollment(enrollment_id)}
+        scores = {str(s.component_id): s.score for s in self.score_repo.find_by_enrollment(enrollment_id, connection=connection)}
         period_grades = {}
         for order in (1, 2):
             items = []
@@ -90,22 +90,32 @@ class GradingService:
             date_encoded=date.today(),
         )
 
-    def save_computed_grade(self, grade):
-        return self.grade_repo.save(grade)
+    def save_computed_grade(self, grade, changed_by=None, connection=None):
+        return self.grade_repo.save(grade, changed_by=changed_by, connection=connection)
 
-    def generate_and_save_grade(self, enrollment_id, offering_id, midterm_weight=40.0, finals_weight=60.0):
-        # compute and save for a single student
-        grade = self.compute_student_grades(enrollment_id, offering_id, midterm_weight, finals_weight)
-        return self.save_computed_grade(grade)
+    def generate_and_save_grade(self, enrollment_id, offering_id, midterm_weight=40.0, finals_weight=60.0,
+                                changed_by=None, connection=None):
+        grade = self.compute_student_grades(enrollment_id, offering_id, midterm_weight, finals_weight, connection)
+        return self.save_computed_grade(grade, changed_by=changed_by, connection=connection)
 
-    def bulk_compute_class_grades(self, offering_id, midterm_weight=40.0, finals_weight=60.0):
-        # compute and save grades for all students enrolled in the class
+    def bulk_compute_class_grades(self, offering_id, midterm_weight=40.0, finals_weight=60.0, changed_by=None):
         enrollments = self.enrollment_repo.find_by_offering(offering_id)
-        saved_grades = []
-        for en in enrollments:
-            grade = self.generate_and_save_grade(en.enrollment_id, offering_id, midterm_weight, finals_weight)
-            saved_grades.append(grade)
-        return saved_grades
+        conn = self.grade_repo.conn_func()
+        try:
+            saved_grades = []
+            for enrollment in enrollments:
+                grade = self.generate_and_save_grade(
+                    enrollment.enrollment_id, offering_id, midterm_weight, finals_weight,
+                    changed_by=changed_by, connection=conn,
+                )
+                saved_grades.append(grade)
+            conn.commit()
+            return saved_grades
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
 
     def get_class_grades(self, class_id):
         return self.grade_repo.find_by_offering(class_id)

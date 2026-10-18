@@ -21,7 +21,7 @@ class ScoreService:
         return [(score, GradeCalculator.normalize_score(score.score, score.max_score))
                 for score in self.scores.find_by_enrollment(enrollment_id)]
 
-    def save(self, score):
+    def save(self, score, changed_by=None):
         enrollment = self.enrollments.find_by_id(score.enrollment_id) if score.enrollment_id else None
         if not enrollment or enrollment.status.lower() != "enrolled":
             raise ValueError("Scores can only be entered for an enrolled student.")
@@ -33,19 +33,37 @@ class ScoreService:
             raise ValueError("That component is not configured for this class.")
         score.score = number(score.score, "Score")
         GradeCalculator.normalize_score(score.score, component.max_score)
-        saved = self.scores.save(score)
-        self.refresh_grade(enrollment)
-        return saved
+        conn = self.scores.conn_func()
+        try:
+            saved = self.scores.save(score, changed_by=changed_by, connection=conn)
+            self.refresh_grade(enrollment, changed_by=changed_by, connection=conn)
+            conn.commit()
+            return saved
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
 
-    def delete(self, score_id):
+    def delete(self, score_id, changed_by=None):
         score = self.scores.find_by_id(score_id)
         if not score:
             raise ValueError("Score not found. Refresh the list.")
         enrollment = self.enrollments.find_by_id(score.enrollment_id)
-        self.scores.delete_by_id(score_id)
-        self.refresh_grade(enrollment)
+        conn = self.scores.conn_func()
+        try:
+            self.scores.delete_by_id(score_id, changed_by=changed_by, connection=conn)
+            self.refresh_grade(enrollment, changed_by=changed_by, connection=conn)
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
 
-    def refresh_grade(self, enrollment):
-        # keep an existing grade consistent when a score is corrected or removed
-        if self.grades.find_by_enrollment(enrollment.enrollment_id):
-            self.grading.generate_and_save_grade(enrollment.enrollment_id, enrollment.class_id)
+    def refresh_grade(self, enrollment, changed_by=None, connection=None):
+        # the grade must see the score changes before the transaction commits
+        if self.grades.find_by_enrollment(enrollment.enrollment_id, connection=connection):
+            self.grading.generate_and_save_grade(
+                enrollment.enrollment_id, enrollment.class_id, changed_by=changed_by, connection=connection,
+            )

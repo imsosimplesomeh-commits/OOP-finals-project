@@ -38,51 +38,28 @@ class TestGradeCalculator(unittest.TestCase):
         with self.assertRaises(ValueError):
             GradeCalculator.normalize_score(50.0, 0.0)
 
-    def test_compute_component_total(self):
-        # average of 80% and 90% is 85%
-        scores = [(40.0, 50.0), (90.0, 100.0)]
-        avg = GradeCalculator.compute_component_total(scores)
-        self.assertEqual(avg, 85.0)
+    def test_compute_period_grade_single_component(self):
+        items = [(40.0, 50.0, 50.0), (90.0, 100.0, 50.0)]
+        self.assertEqual(GradeCalculator.compute_period_grade(items), 85.0)
 
     def test_compute_period_grade_weighted(self):
-        # Quiz (20%): 80% avg -> 16.0
-        # Lab (30%): 90% avg -> 27.0
-        # Exam (50%): 84% avg -> 42.0
-        # Total = 85.0
-        scores_by_type = {
-            "Quiz": [(40.0, 50.0)],
-            "Laboratory": [(90.0, 100.0)],
-            "Exam": [(84.0, 100.0)],
-        }
-        weights = {"Quiz": 20.0, "Laboratory": 30.0, "Exam": 50.0}
-        period_grade = GradeCalculator.compute_period_grade(scores_by_type, weights)
-        self.assertEqual(period_grade, 85.0)
+        items = [(40.0, 50.0, 20.0), (90.0, 100.0, 30.0), (84.0, 100.0, 50.0)]
+        self.assertEqual(GradeCalculator.compute_period_grade(items), 85.0)
 
     def test_compute_final_grade(self):
-        # 85.0 * 0.40 + 90.0 * 0.60 = 88.0
-        final = GradeCalculator.compute_final_grade(85.0, 90.0, 40.0, 60.0)
+        final = GradeCalculator.compute_overall_grade(85.0, 90.0)
         self.assertEqual(final, 88.0)
 
     def test_remarks_and_rating(self):
-        # 75.0 and above is PASSED
-        self.assertEqual(GradeCalculator.determine_remarks(75.0), "PASSED")
-        self.assertEqual(GradeCalculator.determine_rating(75.0), "3.00")
-        self.assertEqual(GradeCalculator.determine_rating(77.0), "2.75")
-        self.assertEqual(GradeCalculator.determine_rating(80.0), "2.50")
-        self.assertEqual(GradeCalculator.determine_rating(83.0), "2.25")
-        self.assertEqual(GradeCalculator.determine_rating(86.0), "2.00")
-        self.assertEqual(GradeCalculator.determine_rating(89.0), "1.75")
-        self.assertEqual(GradeCalculator.determine_rating(92.0), "1.50")
-        self.assertEqual(GradeCalculator.determine_rating(95.0), "1.25")
-        self.assertEqual(GradeCalculator.determine_rating(98.0), "1.00")
-
-        # below 75.0 is strictly FAILED and 5.00
-        self.assertEqual(GradeCalculator.determine_remarks(74.9), "FAILED")
-        self.assertEqual(GradeCalculator.determine_rating(74.9), "5.00")
-        self.assertEqual(GradeCalculator.determine_remarks(74.99), "FAILED")
-        self.assertEqual(GradeCalculator.determine_rating(74.99), "5.00")
-        self.assertEqual(GradeCalculator.determine_rating(65.0), "5.00")
-        self.assertEqual(GradeCalculator.determine_rating(0.0), "5.00")
+        self.assertEqual(GradeCalculator.remarks_for(GradeCalculator.to_grade_point(75.0)), "Passed")
+        for percentage, point in [
+            (75, 3.00), (77, 2.75), (80, 2.50), (83, 2.25), (86, 2.00),
+            (89, 1.75), (92, 1.50), (95, 1.25), (98, 1.00),
+            (74.9, 5.00), (74.99, 5.00), (65, 5.00), (0, 5.00),
+        ]:
+            with self.subTest(percentage=percentage):
+                self.assertEqual(GradeCalculator.to_grade_point(percentage), point)
+        self.assertEqual(GradeCalculator.remarks_for(GradeCalculator.to_grade_point(74.9)), "Failed")
 
 
 class TestRepositoriesAndServices(unittest.TestCase):

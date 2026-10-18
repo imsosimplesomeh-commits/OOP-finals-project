@@ -29,70 +29,64 @@ class GradingService:
         self.period_repo = period_repo or GradingPeriodRepository()
         self.calculator = GradeCalculator()
 
-    def validate_percentages(self, offering_id):
-        # make sure configured weights for the class add up to 100%
-        percentages = self.percentage_repo.find_by_offering(offering_id)
-        if not percentages:
-            return False, "No grade percentage weights configured for this class."
-        total = sum(p.percentage for p in percentages)
-        if abs(total - 100.0) > 0.01:
-            return False, f"Grade percentage weights total {total:.2f}%, but must equal 100%."
-        return True, "Valid percentage configuration."
-
     def get_class_percentage_weights(self, offering_id):
         percentages = self.percentage_repo.find_by_offering(offering_id)
-        return {p.component_type: p.percentage for p in percentages}
+        return {str(p.component_id): p.percentage for p in percentages}
+
+    def _load_period_components(self, offering_id):
+        weights = self.get_class_percentage_weights(offering_id)
+        components = self.component_repo.find_by_offering(offering_id)
+        periods = {str(p.period_id): p for p in self.period_repo.find_all()}
+        groups = {1: [], 2: []}
+        for component in components:
+            period = periods.get(str(component.period_id))
+            if period is None or period.period_order not in groups:
+                raise ValueError("Components must belong to Midterm or Finals.")
+            weight = weights.get(str(component.component_id))
+            groups[period.period_order].append((component, weight))
+        for order, name in ((1, "Midterm"), (2, "Finals")):
+            valid, message = self.calculator.validate_weights([w for _, w in groups[order]])
+            if not valid:
+                raise ValueError(f"{name}: {message}")
+        return groups
+
+    def validate_percentages(self, offering_id):
+        try:
+            self._load_period_components(offering_id)
+        except ValueError as error:
+            return False, str(error)
+        return True, "Valid percentage configuration."
 
     def compute_student_grades(self, enrollment_id, offering_id, midterm_weight=40.0, finals_weight=60.0):
-        # load class weights
-        weights = self.get_class_percentage_weights(offering_id)
-
-        # find midterm and finals period IDs
-        periods = self.period_repo.find_all()
-        midterm_period_id = None
-        finals_period_id = None
-        for p in periods:
-            p_name = p.name.lower()
-            if "mid" in p_name:
-                midterm_period_id = str(p.period_id)
-            elif "fin" in p_name:
-                finals_period_id = str(p.period_id)
-
-        # load components and student's scores
-        all_components = self.component_repo.find_by_offering(offering_id)
-        scores = self.score_repo.find_by_enrollment(enrollment_id)
-        score_by_comp_id = {str(s.component_id): s for s in scores}
-
-        # group scores strictly by period
-        midterm_scores_by_type = {}
-        finals_scores_by_type = {}
-
-        for comp in all_components:
-            score_rec = score_by_comp_id.get(str(comp.component_id))
-            actual_score = score_rec.score if score_rec else 0.0
-            item = (actual_score, comp.max_score)
-
-            comp_pid = str(comp.grading_period_id) if comp.grading_period_id else ""
-            comp_pname = (comp.period_name or "").lower()
-
-            # strictly filter components by grading period
-            if (midterm_period_id and comp_pid == midterm_period_id) or "mid" in comp_pname:
-                midterm_scores_by_type.setdefault(comp.type, []).append(item)
-            elif (finals_period_id and comp_pid == finals_period_id) or "fin" in comp_pname:
-                finals_scores_by_type.setdefault(comp.type, []).append(item)
-
-        # compute period grades separately and overall final grade
-        midterm_grade = self.calculator.compute_period_grade(midterm_scores_by_type, weights)
-        finals_grade = self.calculator.compute_period_grade(finals_scores_by_type, weights)
-        overall = self.calculator.compute_final_grade(midterm_grade, finals_grade, midterm_weight, finals_weight)
-        remarks = self.calculator.determine_remarks(overall)
-
+        if midterm_weight != 40 or finals_weight != 60:
+            raise ValueError("Overall weights must be 40% Midterm and 60% Finals.")
+        enrollment = self.enrollment_repo.find_by_id(enrollment_id)
+        if enrollment is None or str(enrollment.class_id) != str(offering_id):
+            raise ValueError("Select a student enrolled in this class.")
+        groups = self._load_period_components(offering_id)
+        scores = {str(s.component_id): s.score for s in self.score_repo.find_by_enrollment(enrollment_id)}
+        period_grades = {}
+        for order in (1, 2):
+            items = []
+            for component, weight in groups[order]:
+                # an absent score must stay incomplete
+                score = scores.get(str(component.component_id))
+                items.append((score, component.max_score, weight))
+            period_grades[order] = self.calculator.compute_period_grade(items)
+        midterm = period_grades[1]
+        finals = period_grades[2]
+        overall = self.calculator.compute_overall_grade(midterm, finals)
+        # convert before the database rounds percentages to two decimals
+        midterm_equiv = self.calculator.to_grade_point(midterm)
+        final_equiv = self.calculator.to_grade_point(overall)
         return Grade(
             enrollment_id=enrollment_id,
-            midterm_grade=midterm_grade,
-            finals_grade=finals_grade,
-            final_grade=overall,
-            remarks=remarks,
+            midterm_grade=midterm,
+            finals_grade=finals,
+            overall_grade=overall,
+            midterm_equiv=midterm_equiv,
+            final_equiv=final_equiv,
+            remarks=self.calculator.remarks_for(final_equiv),
             date_encoded=date.today(),
         )
 

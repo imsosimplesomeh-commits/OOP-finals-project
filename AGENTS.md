@@ -17,7 +17,7 @@ database tables with the checklist, so the schema and the numbers must match exa
 ## Hard rules from the checklist
 - Keys are text: student_id like "2026-0001", teacher_id like "T-1001". Duplicates rejected.
 - email is optional (the test data has none). year_level is required for students.
-- Grade scale lives ONLY in services/grade_calculator_v2.py (GRADE_SCALE). Use the UNROUNDED percentage.
+- Grade scale lives ONLY in services/grade_calculator.py (GRADE_SCALE). Use the UNROUNDED percentage.
 - Weights are per component per class (GRADE_PERCENTAGE: class_id, component_id, percentage).
   Each grading period's weights must total 100 or the save is rejected. Never hard-code 20/30/50.
 - Overall = Midterm x 40% + Finals x 60%. Raw scores are never changed by recalculation.

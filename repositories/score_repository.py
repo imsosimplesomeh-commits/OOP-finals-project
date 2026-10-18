@@ -3,11 +3,13 @@
 from db import get_connection
 from models import GradeComponentScore
 from repositories.base_repository import Repository
+from repositories.audit_repository import AuditRepository
 
 
 class ScoreRepository(Repository):
-    def __init__(self, conn_func=get_connection):
+    def __init__(self, conn_func=get_connection, audit_repo=None):
         self.conn_func = conn_func
+        self.audit = audit_repo or AuditRepository(conn_func)
 
     def _row_to_score(self, row, detailed=False):
         s = GradeComponentScore(
@@ -59,8 +61,9 @@ class ScoreRepository(Repository):
         finally:
             conn.close()
 
-    def find_by_enrollment(self, enrollment_id):
-        conn = self.conn_func()
+    def find_by_enrollment(self, enrollment_id, connection=None):
+        own_connection = connection is None
+        conn = self.conn_func() if own_connection else connection
         try:
             cur = conn.cursor()
             cur.execute(
@@ -76,7 +79,8 @@ class ScoreRepository(Repository):
             cur.close()
             return [self._row_to_score(r, detailed=True) for r in rows]
         finally:
-            conn.close()
+            if own_connection:
+                conn.close()
 
     def find_by_enrollment_and_component(self, enrollment_id, component_id):
         conn = self.conn_func()
@@ -96,41 +100,67 @@ class ScoreRepository(Repository):
         finally:
             conn.close()
 
-    def save(self, score):
-        # upsert score for (enrollment_id, component_id) in PostgreSQL
-        conn = self.conn_func()
+    def save(self, score, changed_by=None, connection=None):
+        own_connection = connection is None
+        conn = self.conn_func() if own_connection else connection
         try:
-            cur = conn.cursor()
-            cur.execute(
-                "INSERT INTO grade_component_scores (enrollment_id, component_id, score, remarks, date_recorded) "
-                "VALUES (%s, %s, %s, %s, COALESCE(%s, CURRENT_DATE)) "
-                "ON CONFLICT (enrollment_id, component_id) DO UPDATE SET "
-                "score = EXCLUDED.score, remarks = EXCLUDED.remarks, date_recorded = EXCLUDED.date_recorded "
-                "RETURNING score_id",
-                (score.enrollment_id, score.component_id, score.score, score.remarks, score.date_recorded)
-            )
-            sid = cur.fetchone()[0]
-            conn.commit()
-            cur.close()
-            score.score_id = str(sid)
+            with conn.cursor() as cur:
+                # the parent lock also protects the first score insert
+                cur.execute("SELECT enrollment_id FROM enrollments WHERE enrollment_id = %s FOR UPDATE",
+                            (score.enrollment_id,))
+                cur.execute(
+                    "SELECT row_to_json(s) FROM grade_component_scores s "
+                    "WHERE enrollment_id = %s AND component_id = %s FOR UPDATE",
+                    (score.enrollment_id, score.component_id),
+                )
+                row = cur.fetchone()
+                old_value = row[0] if row else None
+                cur.execute(
+                    "INSERT INTO grade_component_scores (enrollment_id, component_id, score, remarks, date_recorded) "
+                    "VALUES (%s, %s, %s, %s, COALESCE(%s, CURRENT_DATE)) "
+                    "ON CONFLICT (enrollment_id, component_id) DO UPDATE SET "
+                    "score = EXCLUDED.score, remarks = EXCLUDED.remarks, date_recorded = EXCLUDED.date_recorded "
+                    "RETURNING score_id",
+                    (score.enrollment_id, score.component_id, score.score, score.remarks, score.date_recorded),
+                )
+                score_id = cur.fetchone()[0]
+                cur.execute("SELECT row_to_json(s) FROM grade_component_scores s WHERE score_id = %s", (score_id,))
+                new_value = cur.fetchone()[0]
+                self.audit.log_change(cur, "GRADE_COMPONENT_SCORE", score_id,
+                                      "UPDATE" if old_value else "INSERT", old_value, new_value, changed_by)
+            if own_connection:
+                conn.commit()
+            score.score_id = str(score_id)
             return score
         except Exception:
-            conn.rollback()
+            if own_connection:
+                conn.rollback()
             raise
         finally:
-            conn.close()
+            if own_connection:
+                conn.close()
 
-    def delete_by_id(self, score_id):
-        conn = self.conn_func()
+    def delete_by_id(self, score_id, changed_by=None, connection=None):
+        own_connection = connection is None
+        conn = self.conn_func() if own_connection else connection
         try:
-            cur = conn.cursor()
-            cur.execute("DELETE FROM grade_component_scores WHERE score_id = %s", (score_id,))
-            affected = cur.rowcount
-            conn.commit()
-            cur.close()
-            return affected > 0
+            with conn.cursor() as cur:
+                cur.execute("SELECT enrollment_id FROM grade_component_scores WHERE score_id = %s", (score_id,))
+                row = cur.fetchone()
+                if row:
+                    cur.execute("SELECT enrollment_id FROM enrollments WHERE enrollment_id = %s FOR UPDATE", (row[0],))
+                cur.execute("SELECT row_to_json(s) FROM grade_component_scores s WHERE score_id = %s FOR UPDATE", (score_id,))
+                row = cur.fetchone()
+                if row:
+                    cur.execute("DELETE FROM grade_component_scores WHERE score_id = %s", (score_id,))
+                    self.audit.log_change(cur, "GRADE_COMPONENT_SCORE", score_id, "DELETE", row[0], None, changed_by)
+            if own_connection:
+                conn.commit()
+            return row is not None
         except Exception:
-            conn.rollback()
+            if own_connection:
+                conn.rollback()
             raise
         finally:
-            conn.close()
+            if own_connection:
+                conn.close()

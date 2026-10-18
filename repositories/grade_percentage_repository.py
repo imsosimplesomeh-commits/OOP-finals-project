@@ -3,11 +3,13 @@
 from db import get_connection
 from models import GradePercentage
 from repositories.base_repository import Repository
+from repositories.audit_repository import AuditRepository
 
 
 class GradePercentageRepository(Repository):
-    def __init__(self, conn_func=get_connection):
+    def __init__(self, conn_func=get_connection, audit_repo=None):
         self.conn_func = conn_func
+        self.audit = audit_repo or AuditRepository(conn_func)
 
     def _row_to_percentage(self, row):
         return GradePercentage(
@@ -61,28 +63,37 @@ class GradePercentageRepository(Repository):
         finally:
             conn.close()
 
-    def save(self, percentage):
+    def save(self, percentage, changed_by=None):
         conn = self.conn_func()
         try:
-            cur = conn.cursor()
-            if percentage.percentage_id:
-                cur.execute(
-                    "UPDATE grade_percentages SET class_id=%s, component_id=%s, "
-                    "percentage=%s WHERE percentage_id=%s RETURNING percentage_id",
-                    (percentage.class_id, percentage.component_id,
-                     percentage.percentage, percentage.percentage_id)
-                )
-                pid = cur.fetchone()[0]
-            else:
-                cur.execute(
-                    "INSERT INTO grade_percentages (class_id, component_id, percentage) "
-                    "VALUES (%s, %s, %s) RETURNING percentage_id",
-                    (percentage.class_id, percentage.component_id, percentage.percentage)
-                )
-                pid = cur.fetchone()[0]
+            with conn.cursor() as cur:
+                cur.execute("SELECT class_id FROM class_offerings WHERE class_id = %s FOR UPDATE", (percentage.class_id,))
+                old_value = None
+                if percentage.percentage_id:
+                    cur.execute("SELECT row_to_json(w) FROM grade_percentages w WHERE percentage_id = %s FOR UPDATE",
+                                (percentage.percentage_id,))
+                    row = cur.fetchone()
+                    if not row:
+                        raise ValueError("Weight not found. Refresh the list.")
+                    old_value = row[0]
+                    cur.execute(
+                        "UPDATE grade_percentages SET class_id=%s, component_id=%s, percentage=%s "
+                        "WHERE percentage_id=%s RETURNING percentage_id",
+                        (percentage.class_id, percentage.component_id, percentage.percentage, percentage.percentage_id),
+                    )
+                else:
+                    cur.execute(
+                        "INSERT INTO grade_percentages (class_id, component_id, percentage) "
+                        "VALUES (%s, %s, %s) RETURNING percentage_id",
+                        (percentage.class_id, percentage.component_id, percentage.percentage),
+                    )
+                percentage_id = cur.fetchone()[0]
+                cur.execute("SELECT row_to_json(w) FROM grade_percentages w WHERE percentage_id = %s", (percentage_id,))
+                new_value = cur.fetchone()[0]
+                self.audit.log_change(cur, "GRADE_PERCENTAGE", percentage_id,
+                                      "UPDATE" if old_value else "INSERT", old_value, new_value, changed_by)
             conn.commit()
-            cur.close()
-            percentage.percentage_id = str(pid)
+            percentage.percentage_id = str(percentage_id)
             return percentage
         except Exception:
             conn.rollback()
@@ -90,17 +101,30 @@ class GradePercentageRepository(Repository):
         finally:
             conn.close()
 
-    def save_period(self, class_id, values):
+    def save_period(self, class_id, values, changed_by=None):
         conn = self.conn_func()
         try:
             with conn.cursor() as cur:
+                cur.execute("SELECT class_id FROM class_offerings WHERE class_id = %s FOR UPDATE", (class_id,))
                 for component_id, percentage in values:
+                    cur.execute(
+                        "SELECT row_to_json(w) FROM grade_percentages w "
+                        "WHERE class_id = %s AND component_id = %s FOR UPDATE",
+                        (class_id, component_id),
+                    )
+                    row = cur.fetchone()
+                    old_value = row[0] if row else None
                     cur.execute(
                         "INSERT INTO grade_percentages (class_id, component_id, percentage) "
                         "VALUES (%s, %s, %s) ON CONFLICT (class_id, component_id) "
-                        "DO UPDATE SET percentage = EXCLUDED.percentage",
+                        "DO UPDATE SET percentage = EXCLUDED.percentage RETURNING percentage_id",
                         (class_id, component_id, percentage),
                     )
+                    percentage_id = cur.fetchone()[0]
+                    cur.execute("SELECT row_to_json(w) FROM grade_percentages w WHERE percentage_id = %s", (percentage_id,))
+                    new_value = cur.fetchone()[0]
+                    self.audit.log_change(cur, "GRADE_PERCENTAGE", percentage_id,
+                                          "UPDATE" if old_value else "INSERT", old_value, new_value, changed_by)
             conn.commit()
         except Exception:
             conn.rollback()
@@ -108,15 +132,21 @@ class GradePercentageRepository(Repository):
         finally:
             conn.close()
 
-    def delete_by_id(self, percentage_id):
+    def delete_by_id(self, percentage_id, changed_by=None):
         conn = self.conn_func()
         try:
-            cur = conn.cursor()
-            cur.execute("DELETE FROM grade_percentages WHERE percentage_id = %s", (percentage_id,))
-            affected = cur.rowcount
+            with conn.cursor() as cur:
+                cur.execute("SELECT class_id FROM grade_percentages WHERE percentage_id = %s", (percentage_id,))
+                row = cur.fetchone()
+                if row:
+                    cur.execute("SELECT class_id FROM class_offerings WHERE class_id = %s FOR UPDATE", (row[0],))
+                cur.execute("SELECT row_to_json(w) FROM grade_percentages w WHERE percentage_id = %s FOR UPDATE", (percentage_id,))
+                row = cur.fetchone()
+                if row:
+                    cur.execute("DELETE FROM grade_percentages WHERE percentage_id = %s", (percentage_id,))
+                    self.audit.log_change(cur, "GRADE_PERCENTAGE", percentage_id, "DELETE", row[0], None, changed_by)
             conn.commit()
-            cur.close()
-            return affected > 0
+            return row is not None
         except Exception:
             conn.rollback()
             raise

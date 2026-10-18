@@ -16,6 +16,7 @@ from repositories import (
     EnrollmentRepository, GradingPeriodRepository, GradeComponentRepository,
     GradePercentageRepository, ScoreRepository, GradeRepository,
 )
+from services.grading_service import GradingService
 
 
 class TestChecklistSchema(unittest.TestCase):
@@ -231,3 +232,119 @@ class TestChecklistSchema(unittest.TestCase):
         row = self.query("SELECT record_id, old_value, new_value, changed_by, changed_at FROM audit_log")[0]
         self.assertEqual(row[:4], ("3", "57", "75", "tester"))
         self.assertIsNotNone(row[4])
+
+    def add_grading_records(self):
+        self.add_records()
+        finals = self.periods.save(GradingPeriod(name="Finals", period_order=2))
+        self.grade_components = [self.component]
+        for period, name, kind, maximum, weight in [
+            (self.period, "Midterm Laboratory/Project", "Laboratory", 100, 30),
+            (self.period, "Midterm Examination", "Exam", 100, 50),
+            (finals, "Final Quiz", "Quiz", 50, 20),
+            (finals, "Final Laboratory/Project", "Laboratory", 100, 30),
+            (finals, "Final Examination", "Exam", 100, 50),
+        ]:
+            component = self.components.save(GradeComponent(
+                period_id=period.period_id, name=name, type=kind, max_score=maximum,
+            ))
+            self.weights.save(GradePercentage(
+                class_id=self.offering.class_id, component_id=component.component_id,
+                percentage=weight,
+            ))
+            self.grade_components.append(component)
+        self.grade_enrollments = [self.enrollment]
+        for number, first, last in [("2026-0002", "Pedro", "Reyes"), ("2026-0003", "Ana", "Garcia")]:
+            self.students.save(Student(
+                student_id=number, first_name=first, last_name=last, program="BSCS", year_level=2,
+            ))
+            self.grade_enrollments.append(self.enrollments.save(Enrollment(
+                student_id=number, class_id=self.offering.class_id,
+            )))
+        for enrollment, scores in zip(self.grade_enrollments, [
+            [40, 90, 75, 45, 85, 80], [20, 60, 55, 30, 70, 65], [50, 100, 100, 48, 95, 92],
+        ]):
+            for component, score in zip(self.grade_components, scores):
+                self.scores.save(GradeComponentScore(
+                    enrollment_id=enrollment.enrollment_id, component_id=component.component_id,
+                    score=score,
+                ))
+        self.grading = GradingService(
+            self.enrollments, self.weights, self.components, self.scores, self.grades, self.periods,
+        )
+
+    def test_service_saves_checklist_grades_and_recalculates(self):
+        self.add_grading_records()
+        raw_before = self.query("SELECT * FROM grade_component_scores ORDER BY score_id")
+        self.assertTrue(self.grading.validate_percentages(self.offering.class_id)[0])
+        self.grading.bulk_compute_class_grades(self.offering.class_id)
+        grade_ids = [g.grade_id for g in self.grades.find_all()]
+        for enrollment, expected in zip(self.grade_enrollments, [
+            (80.5, 83.5, 82.3, 2.5, 2.25, "Passed"),
+            (53.5, 65.5, 60.7, 5, 5, "Failed"),
+            (100, 93.7, 96.22, 1, 1.25, "Passed"),
+        ]):
+            grade = self.grades.find_by_enrollment(enrollment.enrollment_id)
+            self.assertEqual((grade.midterm_grade, grade.finals_grade, grade.overall_grade,
+                              grade.midterm_equiv, grade.final_equiv, grade.remarks), expected)
+        for weight in self.weights.find_by_offering(self.offering.class_id):
+            if weight.component_id == self.grade_components[0].component_id:
+                weight.percentage = 30
+            elif weight.component_id == self.grade_components[2].component_id:
+                weight.percentage = 40
+            self.weights.save(weight)
+        self.grading.bulk_compute_class_grades(self.offering.class_id)
+        for enrollment, expected in zip(self.grade_enrollments, [(81, 82.5), (52, 60.1), (100, 96.22)]):
+            grade = self.grades.find_by_enrollment(enrollment.enrollment_id)
+            self.assertEqual((grade.midterm_grade, grade.overall_grade), expected)
+        self.assertCountEqual([g.grade_id for g in self.grades.find_all()], grade_ids)
+        self.assertEqual(self.query("SELECT * FROM grade_component_scores ORDER BY score_id"), raw_before)
+
+    def test_service_missing_score_is_saved_as_null(self):
+        self.add_grading_records()
+        enrollment_id = self.grade_enrollments[2].enrollment_id
+        original = self.grading.generate_and_save_grade(enrollment_id, self.offering.class_id)
+        component_id = self.grade_components[3].component_id
+        score = self.scores.find_by_enrollment_and_component(enrollment_id, component_id)
+        self.scores.delete_by_id(score.score_id)
+        self.grading.generate_and_save_grade(enrollment_id, self.offering.class_id)
+        grade = self.grades.find_by_enrollment(enrollment_id)
+        self.assertEqual((grade.midterm_grade, grade.midterm_equiv), (100, 1))
+        self.assertEqual((grade.finals_grade, grade.overall_grade, grade.final_equiv), (None, None, None))
+        self.assertEqual(grade.remarks, "Incomplete")
+        self.assertEqual(self.query(
+            "SELECT finals_grade IS NULL, overall_grade IS NULL FROM grades WHERE grade_id = %s",
+            (grade.grade_id,),
+        ), [(True, True)])
+        self.scores.save(GradeComponentScore(enrollment_id=enrollment_id, component_id=component_id, score=48))
+        self.grading.generate_and_save_grade(enrollment_id, self.offering.class_id)
+        grade = self.grades.find_by_enrollment(enrollment_id)
+        self.assertEqual((grade.grade_id, grade.finals_grade, grade.overall_grade), (original.grade_id, 93.7, 96.22))
+
+    def test_service_uses_unrounded_percentage_for_grade_points(self):
+        self.add_grading_records()
+        for component in self.grade_components:
+            component.max_score = 2000
+            self.components.save(component)
+            self.scores.save(GradeComponentScore(
+                enrollment_id=self.enrollment.enrollment_id, component_id=component.component_id,
+                score=1939.9,
+            ))
+        self.grading.generate_and_save_grade(self.enrollment.enrollment_id, self.offering.class_id)
+        grade = self.grades.find_by_enrollment(self.enrollment.enrollment_id)
+        self.assertEqual((grade.midterm_grade, grade.overall_grade), (97, 97))
+        self.assertEqual((grade.midterm_equiv, grade.final_equiv), (1.25, 1.25))
+
+    def test_service_checks_weights_per_period(self):
+        self.add_grading_records()
+        for weight in self.weights.find_by_offering(self.offering.class_id):
+            if weight.component_id == self.grade_components[0].component_id:
+                weight.percentage = 10
+            elif weight.component_id == self.grade_components[3].component_id:
+                weight.percentage = 30
+            self.weights.save(weight)
+        valid, message = self.grading.validate_percentages(self.offering.class_id)
+        self.assertFalse(valid)
+        self.assertIn("Midterm", message)
+        with self.assertRaises(ValueError):
+            self.grading.generate_and_save_grade(self.enrollment.enrollment_id, self.offering.class_id)
+        self.assertEqual(self.grades.find_all(), [])

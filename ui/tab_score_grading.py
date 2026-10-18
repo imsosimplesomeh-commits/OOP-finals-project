@@ -9,7 +9,7 @@ from repositories import (
     ClassRepository, EnrollmentRepository, GradeComponentRepository,
     GradingPeriodRepository, ScoreRepository, GradeRepository, GradePercentageRepository
 )
-from services import GradingService, GradeCalculator
+from services import GradingService
 
 
 class ScoreGradingTab(ttk.Frame):
@@ -152,7 +152,7 @@ class ScoreGradingTab(ttk.Frame):
 
     def load_classes(self):
         classes = self.class_repo.find_all()
-        self.class_map = {f"{c.class_code} - {c.subject_name or c.subject_code} ({c.section or 'N/A'})": c.offering_id for c in classes}
+        self.class_map = {f"{c.class_code} - {c.subject_name or c.subject_code} ({c.section or 'N/A'})": c.class_id for c in classes}
         self.cb_class["values"] = list(self.class_map.keys())
         if self.class_map and not self.selected_offering_id:
             self.cb_class.current(0)
@@ -288,58 +288,69 @@ class ScoreGradingTab(ttk.Frame):
         try:
             mid = float(self.entry_mid_weight.get().strip())
             fin = float(self.entry_fin_weight.get().strip())
-            if mid <= 0 or fin <= 0:
+            if mid != 40 or fin != 60:
                 raise ValueError()
             return mid, fin
         except ValueError:
-            messagebox.showwarning("Invalid Weights", "Midterm and Finals weights must be positive numbers.")
-            return 40.0, 60.0
+            messagebox.showwarning("Invalid Weights", "Use 40% Midterm and 60% Finals.")
+            return None
 
     def calculate_selected_student(self):
         if not self.selected_enrollment_id or not self.selected_offering_id:
             messagebox.showwarning("Validation", "Select a student to calculate grade.")
             return
 
-        valid, msg = self.grading_service.validate_percentages(self.selected_offering_id)
-        if not valid:
-            messagebox.showwarning("Weight Configuration Error", msg)
-            return
-
-        mid_w, fin_w = self._get_weights()
         try:
+            valid, msg = self.grading_service.validate_percentages(self.selected_offering_id)
+            if not valid:
+                messagebox.showwarning("Weight Configuration Error", msg)
+                return
+            weights = self._get_weights()
+            if weights is None:
+                return
+            mid_w, fin_w = weights
             grade = self.grading_service.generate_and_save_grade(
                 self.selected_enrollment_id, self.selected_offering_id, mid_w, fin_w
             )
             messagebox.showinfo(
                 "Grade Computed",
-                f"Midterm: {grade.midterm_grade:.2f}\n"
-                f"Finals: {grade.finals_grade:.2f}\n"
-                f"Overall Final Grade: {grade.final_grade:.2f}\n"
+                f"Midterm: {self.grade_text(grade.midterm_grade)}\n"
+                f"Finals: {self.grade_text(grade.finals_grade)}\n"
+                f"Overall Final Grade: {self.grade_text(grade.overall_grade)}\n"
                 f"Remarks: {grade.remarks}"
             )
             self.load_grades_table()
-        except Exception as e:
-            messagebox.showerror("Error", f"Grade calculation failed: {e}")
+        except ValueError as error:
+            messagebox.showwarning("Grade Calculation", str(error))
+        except Exception:
+            messagebox.showerror("Database Error", "Could not save the grade. Check the database connection.")
 
     def bulk_calculate_grades(self):
         if not self.selected_offering_id:
             messagebox.showwarning("Validation", "Select a class offering.")
             return
 
-        valid, msg = self.grading_service.validate_percentages(self.selected_offering_id)
-        if not valid:
-            messagebox.showwarning("Weight Configuration Error", msg)
-            return
-
-        mid_w, fin_w = self._get_weights()
         try:
+            valid, msg = self.grading_service.validate_percentages(self.selected_offering_id)
+            if not valid:
+                messagebox.showwarning("Weight Configuration Error", msg)
+                return
+            weights = self._get_weights()
+            if weights is None:
+                return
+            mid_w, fin_w = weights
             grades = self.grading_service.bulk_compute_class_grades(
                 self.selected_offering_id, mid_w, fin_w
             )
             messagebox.showinfo("Bulk Calculation", f"Successfully computed grades for {len(grades)} students.")
             self.load_grades_table()
-        except Exception as e:
-            messagebox.showerror("Error", f"Bulk calculation failed: {e}")
+        except ValueError as error:
+            messagebox.showwarning("Grade Calculation", str(error))
+        except Exception:
+            messagebox.showerror("Database Error", "Could not save grades. Check the database connection.")
+
+    def grade_text(self, value):
+        return "Incomplete" if value is None else f"{value:.2f}"
 
     def load_grades_table(self):
         for r in self.tree_grades.get_children():
@@ -354,13 +365,13 @@ class ScoreGradingTab(ttk.Frame):
         for en in enrollments:
             g = grade_map.get(en.enrollment_id)
             if g:
-                mid_txt = f"{g.midterm_grade:.2f}" if g.midterm_grade is not None else "N/A"
-                fin_txt = f"{g.finals_grade:.2f}" if g.finals_grade is not None else "N/A"
-                ovr_txt = f"{g.final_grade:.2f}"
-                rating = GradeCalculator.determine_rating(g.final_grade)
+                mid_txt = self.grade_text(g.midterm_grade)
+                fin_txt = self.grade_text(g.finals_grade)
+                ovr_txt = self.grade_text(g.overall_grade)
+                rating = self.grade_text(g.final_equiv)
                 rem = g.remarks or ""
             else:
-                mid_txt, fin_txt, ovr_txt, rating, rem = "N/A", "N/A", "N/A", "N/A", "Pending"
+                mid_txt, fin_txt, ovr_txt, rating, rem = "Incomplete", "Incomplete", "Incomplete", "Incomplete", "Incomplete"
 
             self.tree_grades.insert("", "end", values=(
                 en.enrollment_id, en.student_name, mid_txt, fin_txt, ovr_txt, rating, rem

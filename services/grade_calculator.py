@@ -1,82 +1,101 @@
-# grade_calculator.py - formulas for score normalization and grade calculations
+# grade_calculator.py - all grading math for the finals project
+# rule: forms and repositories never compute grades, they call this file only.
+
+from decimal import Decimal, ROUND_HALF_UP
+
+# (lowest percentage in the band, grade point) - checked from highest to lowest
+# this is the scale from the CRUD test case document, kept in ONE place only
+GRADE_SCALE = [
+    (97.0, 1.00),
+    (94.0, 1.25),
+    (91.0, 1.50),
+    (88.0, 1.75),
+    (85.0, 2.00),
+    (82.0, 2.25),
+    (79.0, 2.50),
+    (76.0, 2.75),
+    (75.0, 3.00),
+]
+FAILING_POINT = 5.00
+PASSING_POINT = 3.00
+
+
+def round_half_up(value, places=2):
+    # normal school rounding (2.345 -> 2.35), python's round() can surprise you
+    step = Decimal(1).scaleb(-places)
+    return float(Decimal(str(value)).quantize(step, rounding=ROUND_HALF_UP))
 
 
 class GradeCalculator:
     @staticmethod
-    def normalize_score(score: float, max_score: float) -> float:
-        # convert raw score to percentage (0 to 100)
+    def normalize_score(score, max_score):
+        # raw score -> percentage (0 to 100)
         if max_score <= 0:
-            raise ValueError(f"Max score must be greater than 0, got {max_score}")
+            raise ValueError("Max score must be greater than 0.")
         if score < 0:
-            raise ValueError(f"Score cannot be negative, got {score}")
+            raise ValueError("Score cannot be negative.")
         if score > max_score:
-            raise ValueError(f"Score {score} exceeds maximum allowed score {max_score}")
-        return (score / max_score) * 100.0
+            raise ValueError(f"Score {score:g} is above the maximum of {max_score:g}.")
+        return score / max_score * 100
+
+    @staticmethod
+    def validate_weights(weights):
+        # weights = the percentages of ONE grading period, they must total 100
+        if not weights:
+            return False, "No weights entered."
+        for w in weights:
+            if w is None:
+                return False, "Weight cannot be blank."
+            if w < 0:
+                return False, "Weight cannot be negative."
+        total = sum(weights)
+        if abs(total - 100) > 0.001:
+            return False, f"Weights total {total:g}%, they must total 100%."
+        return True, "OK"
 
     @classmethod
-    def compute_component_total(cls, raw_scores) -> float:
-        # compute average percentage across multiple scores in a category
-        if not raw_scores:
-            return 0.0
-        normalized = [cls.normalize_score(s, m) for s, m in raw_scores]
-        return sum(normalized) / len(normalized)
-
-    @classmethod
-    def compute_period_grade(cls, scores_by_type, weights_by_type) -> float:
-        # period grade = sum of (average percentage of each category * weight)
-        if not weights_by_type:
-            return 0.0
-
-        total_weight = sum(weights_by_type.values())
-        if total_weight <= 0:
-            raise ValueError("Total weights must be greater than 0")
-
-        period_grade = 0.0
-        for comp_type, weight in weights_by_type.items():
-            scores = scores_by_type.get(comp_type, [])
-            avg_score = cls.compute_component_total(scores) if scores else 0.0
-            period_grade += avg_score * (weight / total_weight)
-
-        return round(period_grade, 2)
+    def compute_period_grade(cls, items):
+        # items = list of (score, max_score, weight) for one period
+        # returns the percentage, or None if a score is still missing (incomplete)
+        if not items:
+            return None
+        total = 0.0
+        for score, max_score, weight in items:
+            if score is None:
+                return None  # never treat a missing score as 0
+            total += cls.normalize_score(score, max_score) * weight / 100
+        # round(.., 6) only removes float noise; we do NOT round to 2 decimals here
+        # because 96.995 must still land in the 1.25 band
+        return round(total, 6)
 
     @staticmethod
-    def compute_final_grade(midterm_grade: float, finals_grade: float, midterm_weight: float = 40.0, finals_weight: float = 60.0) -> float:
-        # overall final grade using configured period weights (e.g., 40% midterm + 60% finals)
-        total_w = midterm_weight + finals_weight
-        if total_w <= 0:
-            raise ValueError("Period weights sum must be greater than 0")
-
-        final = (midterm_grade * (midterm_weight / total_w)) + (finals_grade * (finals_weight / total_w))
-        return round(final, 2)
+    def compute_overall_grade(midterm, finals, midterm_weight=40, finals_weight=60):
+        if midterm is None or finals is None:
+            return None
+        return round((midterm * midterm_weight + finals * finals_weight)
+                     / (midterm_weight + finals_weight), 6)
 
     @staticmethod
-    def determine_remarks(final_grade: float, passing_grade: float = 75.0) -> str:
-        # check if student passed or failed (standard 75.0 passing mark)
-        return "PASSED" if final_grade >= passing_grade else "FAILED"
+    def to_grade_point(percentage):
+        # use the UNROUNDED percentage: 96.99 -> 1.25, 74.99 -> 5.00
+        if percentage is None:
+            return None
+        for lowest, point in GRADE_SCALE:
+            if percentage >= lowest:
+                return point
+        return FAILING_POINT
 
     @staticmethod
-    def determine_rating(final_grade: float) -> str:
-        # philippine / ndmu collegiate grading scale (1.00 - 5.00)
-        # strictly below 75.0 is failing (5.00)
-        if final_grade < 75.0:
-            return "5.00"
-        elif final_grade >= 98.0:
-            return "1.00"
-        elif final_grade >= 95.0:
-            return "1.25"
-        elif final_grade >= 92.0:
-            return "1.50"
-        elif final_grade >= 89.0:
-            return "1.75"
-        elif final_grade >= 86.0:
-            return "2.00"
-        elif final_grade >= 83.0:
-            return "2.25"
-        elif final_grade >= 80.0:
-            return "2.50"
-        elif final_grade >= 77.0:
-            return "2.75"
-        elif final_grade >= 75.0:
-            return "3.00"
-        else:
-            return "5.00"
+    def remarks_for(grade_point):
+        if grade_point is None:
+            return "Incomplete"
+        return "Passed" if grade_point <= PASSING_POINT else "Failed"
+
+    @staticmethod
+    def weighted_average(rows):
+        # rows = list of (grade_point, units); GWA = sum(point * units) / total units
+        rows = [(p, u) for p, u in rows if p is not None]
+        total_units = sum(u for _, u in rows)
+        if total_units == 0:
+            return None
+        return round_half_up(sum(p * u for p, u in rows) / total_units, 2)

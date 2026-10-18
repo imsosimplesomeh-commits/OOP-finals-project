@@ -90,6 +90,24 @@ class GradePercentageRepository(Repository):
         finally:
             conn.close()
 
+    def save_period(self, class_id, values):
+        conn = self.conn_func()
+        try:
+            with conn.cursor() as cur:
+                for component_id, percentage in values:
+                    cur.execute(
+                        "INSERT INTO grade_percentages (class_id, component_id, percentage) "
+                        "VALUES (%s, %s, %s) ON CONFLICT (class_id, component_id) "
+                        "DO UPDATE SET percentage = EXCLUDED.percentage",
+                        (class_id, component_id, percentage),
+                    )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
     def delete_by_id(self, percentage_id):
         conn = self.conn_func()
         try:

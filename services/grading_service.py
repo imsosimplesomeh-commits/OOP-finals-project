@@ -9,6 +9,7 @@ from repositories.grade_repository import GradeRepository
 from repositories.grading_period_repository import GradingPeriodRepository
 from repositories.score_repository import ScoreRepository
 from services.grade_calculator import GradeCalculator
+from services.validation import number
 
 
 class GradingService:
@@ -58,8 +59,7 @@ class GradingService:
         return True, "Valid percentage configuration."
 
     def compute_student_grades(self, enrollment_id, offering_id, midterm_weight=40.0, finals_weight=60.0):
-        if midterm_weight != 40 or finals_weight != 60:
-            raise ValueError("Overall weights must be 40% Midterm and 60% Finals.")
+        self.validate_overall_weights(midterm_weight, finals_weight)
         enrollment = self.enrollment_repo.find_by_id(enrollment_id)
         if enrollment is None or str(enrollment.class_id) != str(offering_id):
             raise ValueError("Select a student enrolled in this class.")
@@ -106,3 +106,13 @@ class GradingService:
             grade = self.generate_and_save_grade(en.enrollment_id, offering_id, midterm_weight, finals_weight)
             saved_grades.append(grade)
         return saved_grades
+
+    def get_class_grades(self, class_id):
+        return self.grade_repo.find_by_offering(class_id)
+
+    def validate_overall_weights(self, midterm, finals):
+        midterm = number(midterm, "Midterm weight")
+        finals = number(finals, "Finals weight")
+        if midterm != 40 or finals != 60:
+            raise ValueError("Overall weights must be 40% Midterm and 60% Finals.")
+        return midterm, finals

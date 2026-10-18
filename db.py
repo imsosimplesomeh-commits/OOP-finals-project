@@ -8,7 +8,7 @@ DB_CONFIG = {
     "port": int(os.environ.get("PGPORT", 5432)),
     "dbname": os.environ.get("PGDATABASE", "Modelo_CSPC103"),
     "user": os.environ.get("PGUSER", "postgres"),
-    "password": os.environ.get("PGPASSWORD", "ghghgh10162006"),
+    "password": os.environ.get("PGPASSWORD"),
 }
 
 

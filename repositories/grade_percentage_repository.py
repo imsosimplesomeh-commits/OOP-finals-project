@@ -12,8 +12,8 @@ class GradePercentageRepository(Repository):
     def _row_to_percentage(self, row):
         return GradePercentage(
             percentage_id=str(row[0]),
-            offering_id=str(row[1]),
-            component_type=row[2],
+            class_id=str(row[1]),
+            component_id=str(row[2]),
             percentage=float(row[3])
         )
 
@@ -22,7 +22,7 @@ class GradePercentageRepository(Repository):
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT percentage_id, offering_id, component_type, percentage "
+                "SELECT percentage_id, class_id, component_id, percentage "
                 "FROM grade_percentages WHERE percentage_id = %s",
                 (percentage_id,)
             )
@@ -37,8 +37,8 @@ class GradePercentageRepository(Repository):
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT percentage_id, offering_id, component_type, percentage "
-                "FROM grade_percentages ORDER BY component_type"
+                "SELECT percentage_id, class_id, component_id, percentage "
+                "FROM grade_percentages ORDER BY component_id"
             )
             rows = cur.fetchall()
             cur.close()
@@ -46,14 +46,14 @@ class GradePercentageRepository(Repository):
         finally:
             conn.close()
 
-    def find_by_offering(self, offering_id):
+    def find_by_offering(self, class_id):
         conn = self.conn_func()
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT percentage_id, offering_id, component_type, percentage "
-                "FROM grade_percentages WHERE offering_id = %s ORDER BY component_type",
-                (offering_id,)
+                "SELECT percentage_id, class_id, component_id, percentage "
+                "FROM grade_percentages WHERE class_id = %s ORDER BY component_id",
+                (class_id,)
             )
             rows = cur.fetchall()
             cur.close()
@@ -67,17 +67,17 @@ class GradePercentageRepository(Repository):
             cur = conn.cursor()
             if percentage.percentage_id:
                 cur.execute(
-                    "UPDATE grade_percentages SET offering_id=%s, component_type=%s, "
+                    "UPDATE grade_percentages SET class_id=%s, component_id=%s, "
                     "percentage=%s WHERE percentage_id=%s RETURNING percentage_id",
-                    (percentage.offering_id, percentage.component_type,
+                    (percentage.class_id, percentage.component_id,
                      percentage.percentage, percentage.percentage_id)
                 )
                 pid = cur.fetchone()[0]
             else:
                 cur.execute(
-                    "INSERT INTO grade_percentages (offering_id, component_type, percentage) "
+                    "INSERT INTO grade_percentages (class_id, component_id, percentage) "
                     "VALUES (%s, %s, %s) RETURNING percentage_id",
-                    (percentage.offering_id, percentage.component_type, percentage.percentage)
+                    (percentage.class_id, percentage.component_id, percentage.percentage)
                 )
                 pid = cur.fetchone()[0]
             conn.commit()

@@ -70,19 +70,20 @@ class TeacherRepository(Repository):
         conn = self.conn_func()
         try:
             cur = conn.cursor()
-            if teacher.teacher_id:
+            cur.execute("SELECT teacher_id FROM teachers WHERE teacher_id = %s", (teacher.teacher_id,))
+            if cur.fetchone():
                 cur.execute(
                     "UPDATE teachers SET first_name=%s, last_name=%s, email=%s, "
                     "department=%s, status=%s WHERE teacher_id=%s RETURNING teacher_id",
-                    (teacher.first_name, teacher.last_name, teacher.email,
+                    (teacher.first_name, teacher.last_name, teacher.email or None,
                      teacher.department, teacher.status, teacher.teacher_id)
                 )
                 tid = cur.fetchone()[0]
             else:
                 cur.execute(
-                    "INSERT INTO teachers (first_name, last_name, email, department, status) "
-                    "VALUES (%s, %s, %s, %s, %s) RETURNING teacher_id",
-                    (teacher.first_name, teacher.last_name, teacher.email,
+                    "INSERT INTO teachers (teacher_id, first_name, last_name, email, department, status) "
+                    "VALUES (%s, %s, %s, %s, %s, %s) RETURNING teacher_id",
+                    (teacher.teacher_id, teacher.first_name, teacher.last_name, teacher.email or None,
                      teacher.department, teacher.status)
                 )
                 tid = cur.fetchone()[0]

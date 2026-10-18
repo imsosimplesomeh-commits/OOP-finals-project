@@ -11,7 +11,7 @@ class ClassRepository(Repository):
 
     def _row_to_offering(self, row, detailed=False):
         offering = ClassOffering(
-            offering_id=str(row[0]),
+            class_id=str(row[0]),
             class_code=row[1],
             schedule=row[2],
             section=row[3],
@@ -27,19 +27,19 @@ class ClassRepository(Repository):
             offering.teacher_name = row[11]
         return offering
 
-    def find_by_id(self, offering_id):
+    def find_by_id(self, class_id):
         conn = self.conn_func()
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT co.offering_id, co.class_code, co.schedule, co.section, "
+                "SELECT co.class_id, co.class_code, co.schedule, co.section, "
                 "co.school_year, co.semester, co.room, co.subject_id, co.teacher_id, "
                 "s.subject_code, s.subject_name, (t.last_name || ', ' || t.first_name) AS teacher_name "
                 "FROM class_offerings co "
                 "JOIN subjects s ON co.subject_id = s.subject_id "
                 "JOIN teachers t ON co.teacher_id = t.teacher_id "
-                "WHERE co.offering_id = %s",
-                (offering_id,)
+                "WHERE co.class_id = %s",
+                (class_id,)
             )
             row = cur.fetchone()
             cur.close()
@@ -52,7 +52,7 @@ class ClassRepository(Repository):
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT co.offering_id, co.class_code, co.schedule, co.section, "
+                "SELECT co.class_id, co.class_code, co.schedule, co.section, "
                 "co.school_year, co.semester, co.room, co.subject_id, co.teacher_id, "
                 "s.subject_code, s.subject_name, (t.last_name || ', ' || t.first_name) AS teacher_name "
                 "FROM class_offerings co "
@@ -70,21 +70,21 @@ class ClassRepository(Repository):
         conn = self.conn_func()
         try:
             cur = conn.cursor()
-            if offering.offering_id:
+            if offering.class_id:
                 cur.execute(
                     "UPDATE class_offerings SET class_code=%s, schedule=%s, section=%s, "
                     "school_year=%s, semester=%s, room=%s, subject_id=%s, teacher_id=%s "
-                    "WHERE offering_id=%s RETURNING offering_id",
+                    "WHERE class_id=%s RETURNING class_id",
                     (offering.class_code, offering.schedule, offering.section,
                      offering.school_year, offering.semester, offering.room,
-                     offering.subject_id, offering.teacher_id, offering.offering_id)
+                     offering.subject_id, offering.teacher_id, offering.class_id)
                 )
                 oid = cur.fetchone()[0]
             else:
                 cur.execute(
                     "INSERT INTO class_offerings (class_code, schedule, section, school_year, "
                     "semester, room, subject_id, teacher_id) "
-                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING offering_id",
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING class_id",
                     (offering.class_code, offering.schedule, offering.section,
                      offering.school_year, offering.semester, offering.room,
                      offering.subject_id, offering.teacher_id)
@@ -92,7 +92,7 @@ class ClassRepository(Repository):
                 oid = cur.fetchone()[0]
             conn.commit()
             cur.close()
-            offering.offering_id = str(oid)
+            offering.class_id = str(oid)
             return offering
         except Exception:
             conn.rollback()
@@ -100,11 +100,11 @@ class ClassRepository(Repository):
         finally:
             conn.close()
 
-    def delete_by_id(self, offering_id):
+    def delete_by_id(self, class_id):
         conn = self.conn_func()
         try:
             cur = conn.cursor()
-            cur.execute("DELETE FROM class_offerings WHERE offering_id = %s", (offering_id,))
+            cur.execute("DELETE FROM class_offerings WHERE class_id = %s", (class_id,))
             affected = cur.rowcount
             conn.commit()
             cur.close()

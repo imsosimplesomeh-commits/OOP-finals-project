@@ -4,15 +4,16 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import csv
 
-from repositories import ClassRepository, StudentRepository
+from services.class_service import ClassService
+from services.student_service import StudentService
 from services import ReportService
 
 
 class ReportsTab(ttk.Frame):
     def __init__(self, parent):
         super().__init__(parent)
-        self.class_repo = ClassRepository()
-        self.student_repo = StudentRepository()
+        self.class_service = ClassService()
+        self.student_service = StudentService()
         self.report_service = ReportService()
 
         self.class_map = {}
@@ -79,13 +80,16 @@ class ReportsTab(ttk.Frame):
         t_scroll_x.pack(side="bottom", fill="x")
 
     def load_dropdowns(self):
-        classes = self.class_repo.find_all()
-        self.class_map = {f"{c.class_code} - {c.subject_name or c.subject_code} ({c.section or 'N/A'})": c.offering_id for c in classes}
+        try:
+            classes = self.class_service.find_all()
+            self.class_map = {f"{c.class_code} - {c.subject_name or c.subject_code} ({c.section or 'N/A'})": c.class_id for c in classes}
 
-        students = self.student_repo.find_all()
-        self.student_map = {f"{s.full_name} ({s.email})": s.student_id for s in students}
+            students = self.student_service.find_all()
+            self.student_map = {f"{s.full_name} ({s.email})": s.student_id for s in students}
 
-        self.on_report_type_change(None)
+            self.on_report_type_change(None)
+        except Exception:
+            messagebox.showerror("Database Error", "Could not load report choices. Check the database connection.")
 
     def on_report_type_change(self, event):
         rtype = self.cb_report_type.get()
@@ -129,8 +133,10 @@ class ReportsTab(ttk.Frame):
                 data = self.report_service.generate_student_grade_report(student_id)
                 self.current_report_data = data
                 self._display_student_report(data)
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed generating report: {e}")
+        except ValueError as error:
+            messagebox.showwarning("Report", str(error))
+        except Exception:
+            messagebox.showerror("Report", "Could not generate the report. Check the database connection.")
 
     def _display_class_list(self, data):
         # document preview text

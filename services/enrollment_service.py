@@ -1,6 +1,8 @@
 # enrollment_service.py - handles enrollment logic and validations
 
 from datetime import date
+from repositories import ScoreRepository, GradeRepository
+from services.validation import required
 from models import Enrollment
 from repositories.class_repository import ClassRepository
 from repositories.enrollment_repository import EnrollmentRepository
@@ -8,12 +10,20 @@ from repositories.student_repository import StudentRepository
 
 
 class EnrollmentService:
-    def __init__(self, enrollment_repo=None, student_repo=None, class_repo=None):
+    def __init__(self, enrollment_repo=None, student_repo=None, class_repo=None,
+                 score_repo=None, grade_repo=None):
         self.enrollment_repo = enrollment_repo or EnrollmentRepository()
         self.student_repo = student_repo or StudentRepository()
         self.class_repo = class_repo or ClassRepository()
+        self.scores = score_repo or ScoreRepository()
+        self.grades = grade_repo or GradeRepository()
 
     def enroll_student(self, student_id, offering_id, enroll_date=None):
+        if not student_id or not str(student_id).strip():
+            return False, "Student number is required.", None
+        student_id = str(student_id).strip()
+        if not offering_id:
+            return False, "Select a class first.", None
         # validate student and class exist
         student = self.student_repo.find_by_id(student_id)
         if not student:
@@ -28,11 +38,16 @@ class EnrollmentService:
         if existing:
             return False, f"Student '{student.full_name}' is already enrolled in {offering.class_code}.", None
 
+        if enroll_date is not None and not isinstance(enroll_date, date):
+            try:
+                enroll_date = date.fromisoformat(str(enroll_date))
+            except ValueError:
+                return False, "Use an enrollment date in YYYY-MM-DD format.", None
         enrollment = Enrollment(
             student_id=student_id,
-            offering_id=offering_id,
+            class_id=offering_id,
             enroll_date=enroll_date or date.today(),
-            status="enrolled"
+            status="Enrolled"
         )
         saved = self.enrollment_repo.save(enrollment)
         return True, f"Successfully enrolled {student.full_name}.", saved
@@ -46,10 +61,22 @@ class EnrollmentService:
     def update_status(self, enrollment_id, new_status):
         en = self.enrollment_repo.find_by_id(enrollment_id)
         if not en:
-            return False
+            raise ValueError("Enrollment not found. Refresh the list.")
+        new_status = required(new_status, "Enrollment status").capitalize()
+        if new_status not in ("Enrolled", "Dropped"):
+            raise ValueError("Status must be Enrolled or Dropped.")
         en.status = new_status
         self.enrollment_repo.save(en)
         return True
 
     def drop_student(self, enrollment_id):
-        return self.update_status(enrollment_id, "dropped")
+        return self.update_status(enrollment_id, "Dropped")
+
+    def remove_enrollment(self, enrollment_id):
+        if not self.enrollment_repo.find_by_id(enrollment_id):
+            raise ValueError("Enrollment not found. Refresh the list.")
+        if self.scores.find_by_enrollment(enrollment_id):
+            raise ValueError("Cannot remove this enrollment because scores depend on it.")
+        if self.grades.find_by_enrollment(enrollment_id):
+            raise ValueError("Cannot remove this enrollment because a saved grade depends on it.")
+        return self.enrollment_repo.delete_by_id(enrollment_id)

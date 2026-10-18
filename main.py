@@ -23,10 +23,10 @@ class StudentGradeManagementApp(tk.Tk):
         # make sure tables exist
         try:
             init_db()
-        except Exception as e:
+        except Exception:
             messagebox.showwarning(
                 "Database Warning",
-                f"Could not connect or initialize database:\n{e}\nPlease make sure PostgreSQL is running."
+                "Could not initialize the database. Check PostgreSQL and your connection settings."
             )
 
         # header title

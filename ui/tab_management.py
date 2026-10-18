@@ -4,15 +4,17 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from models import Student, Teacher, Subject
-from repositories import StudentRepository, TeacherRepository, SubjectRepository
+from services.student_service import StudentService
+from services.teacher_service import TeacherService
+from services.subject_service import SubjectService
 
 
 class ManagementTab(ttk.Frame):
     def __init__(self, parent):
         super().__init__(parent)
-        self.student_repo = StudentRepository()
-        self.teacher_repo = TeacherRepository()
-        self.subject_repo = SubjectRepository()
+        self.student_service = StudentService()
+        self.teacher_service = TeacherService()
+        self.subject_service = SubjectService()
 
         self._build_subnotebook()
 
@@ -20,13 +22,13 @@ class ManagementTab(ttk.Frame):
         self.sub_notebook = ttk.Notebook(self)
         self.sub_notebook.pack(fill="both", expand=True, padx=5, pady=5)
 
-        self.student_view = StudentManagementView(self.sub_notebook, self.student_repo)
+        self.student_view = StudentManagementView(self.sub_notebook, self.student_service)
         self.sub_notebook.add(self.student_view, text="Students")
 
-        self.teacher_view = TeacherManagementView(self.sub_notebook, self.teacher_repo)
+        self.teacher_view = TeacherManagementView(self.sub_notebook, self.teacher_service)
         self.sub_notebook.add(self.teacher_view, text="Teachers")
 
-        self.subject_view = SubjectManagementView(self.sub_notebook, self.subject_repo)
+        self.subject_view = SubjectManagementView(self.sub_notebook, self.subject_service)
         self.sub_notebook.add(self.subject_view, text="Subjects")
 
     def refresh(self):
@@ -39,9 +41,9 @@ class ManagementTab(ttk.Frame):
 # 1. Student Management View
 # -------------------------------------------------------------
 class StudentManagementView(ttk.Frame):
-    def __init__(self, parent, repo):
+    def __init__(self, parent, service):
         super().__init__(parent)
-        self.repo = repo
+        self.service = service
         self.selected_id = None
 
         self._build_ui()
@@ -54,11 +56,13 @@ class StudentManagementView(ttk.Frame):
 
         self.entries = {}
         fields = [
-            ("First Name", "first_name", 0, 0),
-            ("Last Name", "last_name", 0, 2),
-            ("Email", "email", 1, 0),
-            ("Program", "program", 1, 2),
-            ("Status", "status", 2, 0),
+            ("Student Number", "student_id", 0, 0),
+            ("First Name", "first_name", 0, 2),
+            ("Last Name", "last_name", 1, 0),
+            ("Email (optional)", "email", 1, 2),
+            ("Program", "program", 2, 0),
+            ("Year Level", "year_level", 2, 2),
+            ("Status", "status", 3, 0),
         ]
 
         for label_text, key, r, c in fields:
@@ -73,7 +77,7 @@ class StudentManagementView(ttk.Frame):
 
         # search bar
         search_frame = ttk.Frame(form_frame)
-        search_frame.grid(row=2, column=2, columnspan=2, padx=6, pady=4, sticky="w")
+        search_frame.grid(row=3, column=2, columnspan=2, padx=6, pady=4, sticky="w")
         ttk.Label(search_frame, text="Search:").pack(side="left", padx=2)
         self.search_entry = ttk.Entry(search_frame, width=20)
         self.search_entry.pack(side="left", padx=4)
@@ -90,16 +94,18 @@ class StudentManagementView(ttk.Frame):
         ttk.Button(btn_frame, text="Refresh", command=self.load_data).pack(side="left", padx=4)
 
         # table
-        cols = ("id", "first_name", "last_name", "email", "program", "status")
+        cols = ("id", "first_name", "last_name", "email", "program", "status", "year_level")
         self.tree = ttk.Treeview(self, columns=cols, show="headings", height=12)
         self.tree.heading("id", text="ID")
         self.tree.heading("first_name", text="First Name")
         self.tree.heading("last_name", text="Last Name")
         self.tree.heading("email", text="Email")
         self.tree.heading("program", text="Program")
+        self.tree.heading("year_level", text="Year Level")
+        self.tree.column("year_level", width=70)
         self.tree.heading("status", text="Status")
 
-        self.tree.column("id", width=0, stretch=False)
+        self.tree.column("id", width=110)
         self.tree.column("first_name", width=140)
         self.tree.column("last_name", width=140)
         self.tree.column("email", width=180)
@@ -117,13 +123,13 @@ class StudentManagementView(ttk.Frame):
         for row in self.tree.get_children():
             self.tree.delete(row)
         try:
-            students = self.repo.find_all()
+            students = self.service.find_all()
             for s in students:
                 self.tree.insert("", "end", values=(
-                    s.student_id, s.first_name, s.last_name, s.email, s.program or "", s.status
+                    s.student_id, s.first_name, s.last_name, s.email or "", s.program or "", s.status, s.year_level
                 ))
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to load students: {e}")
+        except Exception:
+            messagebox.showerror("Error", "Could not load records. Check the database connection.")
 
     def search_data(self):
         query = self.search_entry.get().strip()
@@ -133,13 +139,13 @@ class StudentManagementView(ttk.Frame):
         for row in self.tree.get_children():
             self.tree.delete(row)
         try:
-            students = self.repo.search(query)
+            students = self.service.search(query)
             for s in students:
                 self.tree.insert("", "end", values=(
-                    s.student_id, s.first_name, s.last_name, s.email, s.program or "", s.status
+                    s.student_id, s.first_name, s.last_name, s.email or "", s.program or "", s.status, s.year_level
                 ))
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed searching students: {e}")
+        except Exception:
+            messagebox.showerror("Error", "Could not load records. Check the database connection.")
 
     def on_select(self, event):
         sel = self.tree.selection()
@@ -147,6 +153,8 @@ class StudentManagementView(ttk.Frame):
             return
         vals = self.tree.item(sel[0], "values")
         self.selected_id = vals[0]
+        self.entries["student_id"].delete(0, "end")
+        self.entries["student_id"].insert(0, vals[0])
         self.entries["first_name"].delete(0, "end")
         self.entries["first_name"].insert(0, vals[1])
         self.entries["last_name"].delete(0, "end")
@@ -156,67 +164,59 @@ class StudentManagementView(ttk.Frame):
         self.entries["program"].delete(0, "end")
         self.entries["program"].insert(0, vals[4])
         self.entries["status"].set(vals[5])
+        self.entries["year_level"].delete(0, "end")
+        self.entries["year_level"].insert(0, vals[6])
 
     def add_student(self):
-        fn = self.entries["first_name"].get().strip()
-        ln = self.entries["last_name"].get().strip()
-        email = self.entries["email"].get().strip()
-        prog = self.entries["program"].get().strip()
-        status = self.entries["status"].get().strip() or "active"
-
-        if not fn or not ln or not email:
-            messagebox.showwarning("Validation", "First Name, Last Name, and Email are required.")
-            return
-
-        student = Student(first_name=fn, last_name=ln, email=email, program=prog, status=status)
-        try:
-            self.repo.save(student)
-            messagebox.showinfo("Success", f"Student {student.full_name} added.")
-            self.clear_form()
-            self.load_data()
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to add student: {e}")
+        self.save_form(False)
 
     def update_student(self):
-        if not self.selected_id:
-            messagebox.showwarning("No Selection", "Please select a student to update.")
+        self.save_form(True)
+
+    def save_form(self, updating):
+        if updating and not self.selected_id:
+            messagebox.showwarning("No Selection", "Select a student to update.")
             return
-
-        fn = self.entries["first_name"].get().strip()
-        ln = self.entries["last_name"].get().strip()
-        email = self.entries["email"].get().strip()
-        prog = self.entries["program"].get().strip()
-        status = self.entries["status"].get().strip() or "active"
-
-        if not fn or not ln or not email:
-            messagebox.showwarning("Validation", "First Name, Last Name, and Email are required.")
-            return
-
-        student = Student(student_id=self.selected_id, first_name=fn, last_name=ln, email=email, program=prog, status=status)
         try:
-            self.repo.save(student)
-            messagebox.showinfo("Success", f"Student {student.full_name} updated.")
+            record = Student(
+                student_id=self.entries["student_id"].get(),
+                first_name=self.entries["first_name"].get(),
+                last_name=self.entries["last_name"].get(),
+                email=self.entries["email"].get(),
+                program=self.entries["program"].get(),
+                year_level=self.entries["year_level"].get(),
+                status=self.entries["status"].get()
+            )
+            if updating:
+                self.service.update(record, self.selected_id)
+            else:
+                self.service.add(record)
+            messagebox.showinfo("Success", "Student saved.")
             self.clear_form()
             self.load_data()
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to update student: {e}")
+        except ValueError as error:
+            messagebox.showwarning("Validation", str(error))
+        except Exception:
+            messagebox.showerror("Database Error", "Could not save the student. Check the database connection.")
 
     def delete_student(self):
         if not self.selected_id:
-            messagebox.showwarning("No Selection", "Please select a student to delete.")
+            messagebox.showwarning("No Selection", "Select a student to delete.")
             return
-        if not messagebox.askyesno("Confirm Delete", "Are you sure you want to delete this student?"):
+        if not messagebox.askyesno("Confirm Delete", "Delete this student?"):
             return
         try:
-            self.repo.delete_by_id(self.selected_id)
+            self.service.delete(self.selected_id)
             messagebox.showinfo("Success", "Student deleted.")
             self.clear_form()
             self.load_data()
-        except Exception as e:
-            messagebox.showerror("Error", f"Cannot delete student (may be enrolled in classes): {e}")
+        except ValueError as error:
+            messagebox.showwarning("Cannot Delete", str(error))
+        except Exception:
+            messagebox.showerror("Database Error", "Could not delete the student. Refresh the list and try again.")
 
     def clear_form(self):
-        for k in ["first_name", "last_name", "email", "program"]:
+        for k in ["student_id", "first_name", "last_name", "email", "program", "year_level"]:
             self.entries[k].delete(0, "end")
         self.entries["status"].set("active")
         self.selected_id = None
@@ -228,9 +228,9 @@ class StudentManagementView(ttk.Frame):
 # 2. Teacher Management View
 # -------------------------------------------------------------
 class TeacherManagementView(ttk.Frame):
-    def __init__(self, parent, repo):
+    def __init__(self, parent, service):
         super().__init__(parent)
-        self.repo = repo
+        self.service = service
         self.selected_id = None
 
         self._build_ui()
@@ -242,11 +242,12 @@ class TeacherManagementView(ttk.Frame):
 
         self.entries = {}
         fields = [
-            ("First Name", "first_name", 0, 0),
-            ("Last Name", "last_name", 0, 2),
-            ("Email", "email", 1, 0),
-            ("Department", "department", 1, 2),
-            ("Status", "status", 2, 0),
+            ("Teacher ID", "teacher_id", 0, 0),
+            ("First Name", "first_name", 0, 2),
+            ("Last Name", "last_name", 1, 0),
+            ("Email (optional)", "email", 1, 2),
+            ("Department", "department", 2, 0),
+            ("Status", "status", 2, 2),
         ]
 
         for label_text, key, r, c in fields:
@@ -261,7 +262,7 @@ class TeacherManagementView(ttk.Frame):
 
         # search bar
         search_frame = ttk.Frame(form_frame)
-        search_frame.grid(row=2, column=2, columnspan=2, padx=6, pady=4, sticky="w")
+        search_frame.grid(row=3, column=2, columnspan=2, padx=6, pady=4, sticky="w")
         ttk.Label(search_frame, text="Search:").pack(side="left", padx=2)
         self.search_entry = ttk.Entry(search_frame, width=20)
         self.search_entry.pack(side="left", padx=4)
@@ -287,7 +288,7 @@ class TeacherManagementView(ttk.Frame):
         self.tree.heading("department", text="Department")
         self.tree.heading("status", text="Status")
 
-        self.tree.column("id", width=0, stretch=False)
+        self.tree.column("id", width=110)
         self.tree.column("first_name", width=140)
         self.tree.column("last_name", width=140)
         self.tree.column("email", width=180)
@@ -305,13 +306,13 @@ class TeacherManagementView(ttk.Frame):
         for row in self.tree.get_children():
             self.tree.delete(row)
         try:
-            teachers = self.repo.find_all()
+            teachers = self.service.find_all()
             for t in teachers:
                 self.tree.insert("", "end", values=(
-                    t.teacher_id, t.first_name, t.last_name, t.email, t.department or "", t.status
+                    t.teacher_id, t.first_name, t.last_name, t.email or "", t.department or "", t.status
                 ))
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to load teachers: {e}")
+        except Exception:
+            messagebox.showerror("Error", "Could not load records. Check the database connection.")
 
     def search_data(self):
         query = self.search_entry.get().strip()
@@ -321,13 +322,13 @@ class TeacherManagementView(ttk.Frame):
         for row in self.tree.get_children():
             self.tree.delete(row)
         try:
-            teachers = self.repo.search(query)
+            teachers = self.service.search(query)
             for t in teachers:
                 self.tree.insert("", "end", values=(
-                    t.teacher_id, t.first_name, t.last_name, t.email, t.department or "", t.status
+                    t.teacher_id, t.first_name, t.last_name, t.email or "", t.department or "", t.status
                 ))
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed searching teachers: {e}")
+        except Exception:
+            messagebox.showerror("Error", "Could not load records. Check the database connection.")
 
     def on_select(self, event):
         sel = self.tree.selection()
@@ -335,6 +336,8 @@ class TeacherManagementView(ttk.Frame):
             return
         vals = self.tree.item(sel[0], "values")
         self.selected_id = vals[0]
+        self.entries["teacher_id"].delete(0, "end")
+        self.entries["teacher_id"].insert(0, vals[0])
         self.entries["first_name"].delete(0, "end")
         self.entries["first_name"].insert(0, vals[1])
         self.entries["last_name"].delete(0, "end")
@@ -346,65 +349,54 @@ class TeacherManagementView(ttk.Frame):
         self.entries["status"].set(vals[5])
 
     def add_teacher(self):
-        fn = self.entries["first_name"].get().strip()
-        ln = self.entries["last_name"].get().strip()
-        email = self.entries["email"].get().strip()
-        dept = self.entries["department"].get().strip()
-        status = self.entries["status"].get().strip() or "active"
-
-        if not fn or not ln or not email:
-            messagebox.showwarning("Validation", "First Name, Last Name, and Email are required.")
-            return
-
-        teacher = Teacher(first_name=fn, last_name=ln, email=email, department=dept, status=status)
-        try:
-            self.repo.save(teacher)
-            messagebox.showinfo("Success", f"Teacher {teacher.full_name} added.")
-            self.clear_form()
-            self.load_data()
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to add teacher: {e}")
+        self.save_form(False)
 
     def update_teacher(self):
-        if not self.selected_id:
-            messagebox.showwarning("No Selection", "Please select a teacher to update.")
+        self.save_form(True)
+
+    def save_form(self, updating):
+        if updating and not self.selected_id:
+            messagebox.showwarning("No Selection", "Select a teacher to update.")
             return
-
-        fn = self.entries["first_name"].get().strip()
-        ln = self.entries["last_name"].get().strip()
-        email = self.entries["email"].get().strip()
-        dept = self.entries["department"].get().strip()
-        status = self.entries["status"].get().strip() or "active"
-
-        if not fn or not ln or not email:
-            messagebox.showwarning("Validation", "First Name, Last Name, and Email are required.")
-            return
-
-        teacher = Teacher(teacher_id=self.selected_id, first_name=fn, last_name=ln, email=email, department=dept, status=status)
         try:
-            self.repo.save(teacher)
-            messagebox.showinfo("Success", f"Teacher {teacher.full_name} updated.")
+            record = Teacher(
+                teacher_id=self.entries["teacher_id"].get(),
+                first_name=self.entries["first_name"].get(),
+                last_name=self.entries["last_name"].get(),
+                email=self.entries["email"].get(),
+                department=self.entries["department"].get(),
+                status=self.entries["status"].get()
+            )
+            if updating:
+                self.service.update(record, self.selected_id)
+            else:
+                self.service.add(record)
+            messagebox.showinfo("Success", "Teacher saved.")
             self.clear_form()
             self.load_data()
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to update teacher: {e}")
+        except ValueError as error:
+            messagebox.showwarning("Validation", str(error))
+        except Exception:
+            messagebox.showerror("Database Error", "Could not save the teacher. Check the database connection.")
 
     def delete_teacher(self):
         if not self.selected_id:
-            messagebox.showwarning("No Selection", "Please select a teacher to delete.")
+            messagebox.showwarning("No Selection", "Select a teacher to delete.")
             return
-        if not messagebox.askyesno("Confirm Delete", "Are you sure you want to delete this teacher?"):
+        if not messagebox.askyesno("Confirm Delete", "Delete this teacher?"):
             return
         try:
-            self.repo.delete_by_id(self.selected_id)
+            self.service.delete(self.selected_id)
             messagebox.showinfo("Success", "Teacher deleted.")
             self.clear_form()
             self.load_data()
-        except Exception as e:
-            messagebox.showerror("Error", f"Cannot delete teacher (may be assigned to classes): {e}")
+        except ValueError as error:
+            messagebox.showwarning("Cannot Delete", str(error))
+        except Exception:
+            messagebox.showerror("Database Error", "Could not delete the teacher. Refresh the list and try again.")
 
     def clear_form(self):
-        for k in ["first_name", "last_name", "email", "department"]:
+        for k in ["teacher_id", "first_name", "last_name", "email", "department"]:
             self.entries[k].delete(0, "end")
         self.entries["status"].set("active")
         self.selected_id = None
@@ -416,9 +408,9 @@ class TeacherManagementView(ttk.Frame):
 # 3. Subject Management View
 # -------------------------------------------------------------
 class SubjectManagementView(ttk.Frame):
-    def __init__(self, parent, repo):
+    def __init__(self, parent, service):
         super().__init__(parent)
-        self.repo = repo
+        self.service = service
         self.selected_id = None
 
         self._build_ui()
@@ -478,13 +470,13 @@ class SubjectManagementView(ttk.Frame):
         for row in self.tree.get_children():
             self.tree.delete(row)
         try:
-            subjects = self.repo.find_all()
+            subjects = self.service.find_all()
             for s in subjects:
                 self.tree.insert("", "end", values=(
                     s.subject_id, s.subject_code, s.subject_name, s.units, s.description or ""
                 ))
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to load subjects: {e}")
+        except Exception:
+            messagebox.showerror("Error", "Could not load records. Check the database connection.")
 
     def on_select(self, event):
         sel = self.tree.selection()
@@ -502,72 +494,47 @@ class SubjectManagementView(ttk.Frame):
         self.entries["description"].insert(0, vals[4])
 
     def add_subject(self):
-        code = self.entries["subject_code"].get().strip()
-        name = self.entries["subject_name"].get().strip()
-        units_str = self.entries["units"].get().strip()
-        desc = self.entries["description"].get().strip()
-
-        if not code or not name or not units_str:
-            messagebox.showwarning("Validation", "Subject Code, Name, and Units are required.")
-            return
-
-        try:
-            units = int(units_str)
-        except ValueError:
-            messagebox.showwarning("Validation", "Units must be an integer.")
-            return
-
-        subject = Subject(subject_code=code, subject_name=name, units=units, description=desc)
-        try:
-            self.repo.save(subject)
-            messagebox.showinfo("Success", f"Subject {subject.subject_code} added.")
-            self.clear_form()
-            self.load_data()
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to add subject: {e}")
+        self.save_form(False)
 
     def update_subject(self):
-        if not self.selected_id:
-            messagebox.showwarning("No Selection", "Please select a subject to update.")
+        self.save_form(True)
+
+    def save_form(self, updating):
+        if updating and not self.selected_id:
+            messagebox.showwarning("No Selection", "Select a subject to update.")
             return
-
-        code = self.entries["subject_code"].get().strip()
-        name = self.entries["subject_name"].get().strip()
-        units_str = self.entries["units"].get().strip()
-        desc = self.entries["description"].get().strip()
-
-        if not code or not name or not units_str:
-            messagebox.showwarning("Validation", "Subject Code, Name, and Units are required.")
-            return
-
         try:
-            units = int(units_str)
-        except ValueError:
-            messagebox.showwarning("Validation", "Units must be an integer.")
-            return
-
-        subject = Subject(subject_id=self.selected_id, subject_code=code, subject_name=name, units=units, description=desc)
-        try:
-            self.repo.save(subject)
-            messagebox.showinfo("Success", f"Subject {subject.subject_code} updated.")
+            record = Subject(
+                subject_id=self.selected_id if updating else None,
+                subject_code=self.entries["subject_code"].get(),
+                subject_name=self.entries["subject_name"].get(),
+                units=self.entries["units"].get(),
+                description=self.entries["description"].get()
+            )
+            self.service.save(record)
+            messagebox.showinfo("Success", "Subject saved.")
             self.clear_form()
             self.load_data()
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to update subject: {e}")
+        except ValueError as error:
+            messagebox.showwarning("Validation", str(error))
+        except Exception:
+            messagebox.showerror("Database Error", "Could not save the subject. Check the database connection.")
 
     def delete_subject(self):
         if not self.selected_id:
-            messagebox.showwarning("No Selection", "Please select a subject to delete.")
+            messagebox.showwarning("No Selection", "Select a subject to delete.")
             return
-        if not messagebox.askyesno("Confirm Delete", "Are you sure you want to delete this subject?"):
+        if not messagebox.askyesno("Confirm Delete", "Delete this subject?"):
             return
         try:
-            self.repo.delete_by_id(self.selected_id)
+            self.service.delete(self.selected_id)
             messagebox.showinfo("Success", "Subject deleted.")
             self.clear_form()
             self.load_data()
-        except Exception as e:
-            messagebox.showerror("Error", f"Cannot delete subject (may be used in class offerings): {e}")
+        except ValueError as error:
+            messagebox.showwarning("Cannot Delete", str(error))
+        except Exception:
+            messagebox.showerror("Database Error", "Could not delete the subject. Refresh the list and try again.")
 
     def clear_form(self):
         for k in ["subject_code", "subject_name", "description"]:

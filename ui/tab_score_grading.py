@@ -2,31 +2,23 @@
 
 import tkinter as tk
 from tkinter import ttk, messagebox
-from datetime import date
 
 from models import GradeComponentScore
-from repositories import (
-    ClassRepository, EnrollmentRepository, GradeComponentRepository,
-    GradingPeriodRepository, ScoreRepository, GradeRepository, GradePercentageRepository
-)
-from services import GradingService
+from services.grading_service import GradingService
+from services.score_service import ScoreService
+from services.class_service import ClassService
+from services.enrollment_service import EnrollmentService
+from services.configuration_service import ConfigurationService
 
 
 class ScoreGradingTab(ttk.Frame):
     def __init__(self, parent):
         super().__init__(parent)
-        self.class_repo = ClassRepository()
-        self.enrollment_repo = EnrollmentRepository()
-        self.component_repo = GradeComponentRepository()
-        self.period_repo = GradingPeriodRepository()
-        self.score_repo = ScoreRepository()
-        self.grade_repo = GradeRepository()
-        self.percentage_repo = GradePercentageRepository()
-
-        self.grading_service = GradingService(
-            self.enrollment_repo, self.percentage_repo, self.component_repo,
-            self.score_repo, self.grade_repo, self.period_repo
-        )
+        self.class_service = ClassService()
+        self.enrollment_service = EnrollmentService()
+        self.config_service = ConfigurationService()
+        self.score_service = ScoreService()
+        self.grading_service = GradingService()
 
         self.class_map = {}
         self.student_map = {}
@@ -100,11 +92,15 @@ class ScoreGradingTab(ttk.Frame):
         ttk.Button(btn_score_box, text="Save Score", command=self.save_score).pack(side="left", padx=4)
         ttk.Button(btn_score_box, text="Calculate Student", command=self.calculate_selected_student).pack(side="left", padx=4)
         ttk.Button(btn_score_box, text="Clear", command=self.clear_score_form).pack(side="left", padx=4)
+        ttk.Button(btn_score_box, text="Delete Score", command=self.delete_score).pack(side="left", padx=4)
 
         ttk.Label(left_frame, text="Recorded Scores for Selected Student:", font=("Segoe UI", 9, "bold")).pack(anchor="w", padx=8, pady=(8, 2))
 
-        cols_s = ("comp_name", "type", "score", "max", "norm")
+        cols_s = ("score_id", "component_id", "comp_name", "type", "score", "max", "norm", "remarks")
         self.tree_student_scores = ttk.Treeview(left_frame, columns=cols_s, show="headings", height=8)
+        self.tree_student_scores.column("score_id", width=0, stretch=False)
+        self.tree_student_scores.column("component_id", width=0, stretch=False)
+        self.tree_student_scores.column("remarks", width=0, stretch=False)
         self.tree_student_scores.heading("comp_name", text="Component")
         self.tree_student_scores.heading("type", text="Category")
         self.tree_student_scores.heading("score", text="Score")
@@ -117,6 +113,7 @@ class ScoreGradingTab(ttk.Frame):
         self.tree_student_scores.column("max", width=55)
         self.tree_student_scores.column("norm", width=75)
         self.tree_student_scores.pack(fill="both", expand=True, padx=6, pady=4)
+        self.tree_student_scores.bind("<<TreeviewSelect>>", self.on_score_select)
 
         # Right: consolidated class grades table
         right_frame = ttk.LabelFrame(main_split, text="Consolidated Class Grades")
@@ -151,24 +148,37 @@ class ScoreGradingTab(ttk.Frame):
         self.load_classes()
 
     def load_classes(self):
-        classes = self.class_repo.find_all()
-        self.class_map = {f"{c.class_code} - {c.subject_name or c.subject_code} ({c.section or 'N/A'})": c.class_id for c in classes}
-        self.cb_class["values"] = list(self.class_map.keys())
-        if self.class_map and not self.selected_offering_id:
-            self.cb_class.current(0)
-            self.on_class_change(None)
+        try:
+            classes = self.class_service.find_all()
+            self.class_map = {f"{c.class_code} - {c.subject_name or c.subject_code} ({c.section or 'N/A'})": c.class_id for c in classes}
+            self.cb_class["values"] = list(self.class_map.keys())
+            if self.class_map:
+                if self.cb_class.get() not in self.class_map:
+                    self.cb_class.current(0)
+                self.on_class_change(None)
+            else:
+                self.cb_class.set("")
+                self.selected_offering_id = None
+                self.load_class_students()
+                self.load_class_components()
+                self.load_grades_table()
+        except Exception:
+            messagebox.showerror("Database Error", "Could not load records. Check the database connection.")
 
     def on_class_change(self, event):
-        disp = self.cb_class.get()
-        if not disp:
-            return
-        self.selected_offering_id = self.class_map.get(disp)
-        self.load_class_students()
-        self.load_class_components()
-        self.load_grades_table()
+        try:
+            disp = self.cb_class.get()
+            if not disp:
+                return
+            self.selected_offering_id = self.class_map.get(disp)
+            self.load_class_students()
+            self.load_class_components()
+            self.load_grades_table()
+        except Exception:
+            messagebox.showerror("Database Error", "Could not load records. Check the database connection.")
 
     def load_class_students(self):
-        enrollments = self.enrollment_repo.find_by_offering(self.selected_offering_id)
+        enrollments = self.enrollment_service.get_class_enrollments(self.selected_offering_id)
         self.student_map = {f"{e.student_name}": e.enrollment_id for e in enrollments}
         self.cb_student["values"] = list(self.student_map.keys())
         if self.student_map:
@@ -182,7 +192,7 @@ class ScoreGradingTab(ttk.Frame):
                 self.tree_student_scores.delete(r)
 
     def load_class_components(self):
-        comps = self.component_repo.find_by_offering(self.selected_offering_id)
+        comps = self.config_service.get_class_components(self.selected_offering_id)
         self.component_map = {}
         self.comp_max_scores = {}
         for c in comps:
@@ -207,24 +217,30 @@ class ScoreGradingTab(ttk.Frame):
             self.lbl_max_score.config(text=f"{max_s:.1f}")
 
     def on_student_change(self, event):
-        disp = self.cb_student.get()
-        if not disp:
-            return
-        self.selected_enrollment_id = self.student_map.get(disp)
-        self.load_student_scores()
+        try:
+            disp = self.cb_student.get()
+            if not disp:
+                return
+            self.selected_enrollment_id = self.student_map.get(disp)
+            self.load_student_scores()
+        except Exception:
+            messagebox.showerror("Database Error", "Could not load records. Check the database connection.")
 
     def on_grade_row_select(self, event):
-        sel = self.tree_grades.selection()
-        if not sel:
-            return
-        vals = self.tree_grades.item(sel[0], "values")
-        eid = vals[0]
-        self.selected_enrollment_id = eid
-        for disp, sid in self.student_map.items():
-            if sid == eid:
-                self.cb_student.set(disp)
-                break
-        self.load_student_scores()
+        try:
+            sel = self.tree_grades.selection()
+            if not sel:
+                return
+            vals = self.tree_grades.item(sel[0], "values")
+            eid = vals[0]
+            self.selected_enrollment_id = eid
+            for disp, sid in self.student_map.items():
+                if sid == eid:
+                    self.cb_student.set(disp)
+                    break
+            self.load_student_scores()
+        except Exception:
+            messagebox.showerror("Database Error", "Could not load records. Check the database connection.")
 
     def load_student_scores(self):
         for r in self.tree_student_scores.get_children():
@@ -232,67 +248,70 @@ class ScoreGradingTab(ttk.Frame):
         if not self.selected_enrollment_id:
             return
 
-        scores = self.score_repo.find_by_enrollment(self.selected_enrollment_id)
-        for s in scores:
-            max_s = s.max_score or 100.0
-            norm = (s.score / max_s * 100.0) if max_s > 0 else 0.0
+        for score, normalized in self.score_service.get_scores(self.selected_enrollment_id):
             self.tree_student_scores.insert("", "end", values=(
-                s.component_name or "Component", s.component_type or "N/A",
-                f"{s.score:.1f}", f"{max_s:.1f}", f"{norm:.1f}%"
+                score.score_id, score.component_id, score.component_name, score.component_type,
+                f"{score.score:.2f}", f"{score.max_score:.2f}", f"{normalized:.2f}%", score.remarks or "",
             ))
 
+    def on_score_select(self, event):
+        selected = self.tree_student_scores.selection()
+        if not selected:
+            return
+        values = self.tree_student_scores.item(selected[0], "values")
+        for display, component_id in self.component_map.items():
+            if component_id == values[1]:
+                self.cb_comp.set(display)
+                self.on_comp_change(None)
+                break
+        self.entry_raw_score.delete(0, "end")
+        self.entry_raw_score.insert(0, values[4])
+        self.entry_remarks.delete(0, "end")
+        self.entry_remarks.insert(0, values[7])
+
     def save_score(self):
-        if not self.selected_enrollment_id:
-            messagebox.showwarning("Validation", "Select an enrolled student.")
-            return
-        c_disp = self.cb_comp.get()
-        if not c_disp:
-            messagebox.showwarning("Validation", "Select a component.")
-            return
-
-        comp_id = self.component_map.get(c_disp)
-        max_s = self.comp_max_scores.get(comp_id, 100.0)
-        score_str = self.entry_raw_score.get().strip()
-
-        if not score_str:
-            messagebox.showwarning("Validation", "Enter a score.")
-            return
-
         try:
-            score_val = float(score_str)
-            if score_val < 0:
-                raise ValueError("Score cannot be negative.")
-            if score_val > max_s:
-                raise ValueError(f"Score ({score_val}) exceeds maximum allowed score ({max_s}).")
-        except ValueError as ve:
-            messagebox.showwarning("Invalid Score", str(ve))
-            return
-
-        remarks = self.entry_remarks.get().strip()
-        score_obj = GradeComponentScore(
-            enrollment_id=self.selected_enrollment_id,
-            component_id=comp_id,
-            score=score_val,
-            remarks=remarks if remarks else None,
-            date_recorded=date.today()
-        )
-
-        try:
-            self.score_repo.save(score_obj)
-            messagebox.showinfo("Success", f"Recorded score {score_val}/{max_s}.")
+            score = GradeComponentScore(
+                enrollment_id=self.student_map.get(self.cb_student.get()),
+                component_id=self.component_map.get(self.cb_comp.get()),
+                score=self.entry_raw_score.get(),
+                remarks=self.entry_remarks.get().strip() or None,
+            )
+            self.score_service.save(score)
             self.load_student_scores()
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to record score: {e}")
+            self.load_grades_table()
+            messagebox.showinfo("Success", "Score saved.")
+        except ValueError as error:
+            messagebox.showwarning("Invalid Score", str(error))
+        except Exception:
+            messagebox.showerror("Database Error", "Could not save the score. Check the database connection.")
+
+    def delete_score(self):
+        selected = self.tree_student_scores.selection()
+        if not selected:
+            messagebox.showwarning("No Selection", "Select a score to delete.")
+            return
+        if not messagebox.askyesno("Confirm Delete", "Delete this score?"):
+            return
+        try:
+            score_id = self.tree_student_scores.item(selected[0], "values")[0]
+            self.score_service.delete(score_id)
+            self.load_student_scores()
+            self.load_grades_table()
+            self.clear_score_form()
+            messagebox.showinfo("Success", "Score deleted.")
+        except ValueError as error:
+            messagebox.showwarning("Cannot Delete", str(error))
+        except Exception:
+            messagebox.showerror("Database Error", "Could not delete the score. Refresh and try again.")
 
     def _get_weights(self):
         try:
-            mid = float(self.entry_mid_weight.get().strip())
-            fin = float(self.entry_fin_weight.get().strip())
-            if mid != 40 or fin != 60:
-                raise ValueError()
-            return mid, fin
-        except ValueError:
-            messagebox.showwarning("Invalid Weights", "Use 40% Midterm and 60% Finals.")
+            return self.grading_service.validate_overall_weights(
+                self.entry_mid_weight.get(), self.entry_fin_weight.get(),
+            )
+        except ValueError as error:
+            messagebox.showwarning("Invalid Weights", str(error))
             return None
 
     def calculate_selected_student(self):
@@ -358,8 +377,8 @@ class ScoreGradingTab(ttk.Frame):
         if not self.selected_offering_id:
             return
 
-        enrollments = self.enrollment_repo.find_by_offering(self.selected_offering_id)
-        grades = self.grade_repo.find_by_offering(self.selected_offering_id)
+        enrollments = self.enrollment_service.get_class_enrollments(self.selected_offering_id)
+        grades = self.grading_service.get_class_grades(self.selected_offering_id)
         grade_map = {g.enrollment_id: g for g in grades}
 
         for en in enrollments:

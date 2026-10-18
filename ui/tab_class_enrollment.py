@@ -3,33 +3,25 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-from models import ClassOffering, GradePercentage, GradeComponent, Enrollment
-from repositories import (
-    ClassRepository, SubjectRepository, TeacherRepository,
-    GradePercentageRepository, GradeComponentRepository,
-    GradingPeriodRepository, EnrollmentRepository, StudentRepository
-)
-from services import EnrollmentService, GradingService
+from models import ClassOffering, GradeComponent
+from services.class_service import ClassService
+from services.student_service import StudentService
+from services.teacher_service import TeacherService
+from services.subject_service import SubjectService
+from services.configuration_service import ConfigurationService
+from services.enrollment_service import EnrollmentService
 
 
 class ClassEnrollmentTab(ttk.Frame):
     def __init__(self, parent):
         super().__init__(parent)
-        self.class_repo = ClassRepository()
-        self.subject_repo = SubjectRepository()
-        self.teacher_repo = TeacherRepository()
-        self.percentage_repo = GradePercentageRepository()
-        self.component_repo = GradeComponentRepository()
-        self.period_repo = GradingPeriodRepository()
-        self.enrollment_repo = EnrollmentRepository()
-        self.student_repo = StudentRepository()
-
-        self.enrollment_service = EnrollmentService(
-            self.enrollment_repo, self.student_repo, self.class_repo
-        )
-        self.grading_service = GradingService(
-            self.enrollment_repo, self.percentage_repo, self.component_repo
-        )
+        self.class_service = ClassService()
+        self.student_service = StudentService()
+        self.teacher_service = TeacherService()
+        self.subject_service = SubjectService()
+        self.config_service = ConfigurationService()
+        self.enrollment_service = EnrollmentService()
+        self.weight_entries = {}
 
         self.selected_offering_id = None
         self.subject_map = {}
@@ -122,29 +114,25 @@ class ClassEnrollmentTab(ttk.Frame):
 
         w_ctrl = ttk.Frame(left_frame)
         w_ctrl.pack(fill="x", padx=5, pady=3)
-        ttk.Label(w_ctrl, text="Type:").pack(side="left", padx=2)
-        self.cb_weight_type = ttk.Combobox(w_ctrl, values=["Quiz", "Laboratory", "Exam", "Project", "Assignment"], width=12)
-        self.cb_weight_type.set("Quiz")
-        self.cb_weight_type.pack(side="left", padx=2)
-
-        ttk.Label(w_ctrl, text="Weight %:").pack(side="left", padx=2)
-        self.entry_weight_val = ttk.Entry(w_ctrl, width=6)
-        self.entry_weight_val.pack(side="left", padx=2)
-        ttk.Button(w_ctrl, text="Set Weight", command=self.save_weight).pack(side="left", padx=3)
-        ttk.Button(w_ctrl, text="Delete Weight", command=self.delete_weight).pack(side="left", padx=3)
-
-        self.lbl_weight_total = ttk.Label(left_frame, text="Total Weight: 0.0%", font=("Segoe UI", 9, "bold"))
+        ttk.Label(w_ctrl, text="Period:").pack(side="left", padx=2)
+        self.cb_weight_period = ttk.Combobox(w_ctrl, width=12, state="readonly")
+        self.cb_weight_period.pack(side="left", padx=2)
+        self.cb_weight_period.bind("<<ComboboxSelected>>", self.load_weights_and_components)
+        ttk.Button(w_ctrl, text="Save Period Weights", command=self.save_weight).pack(side="left", padx=3)
+        self.weight_form = ttk.Frame(left_frame)
+        self.weight_form.pack(fill="x", padx=5, pady=3)
+        self.lbl_weight_total = ttk.Label(left_frame, text="No saved weights")
         self.lbl_weight_total.pack(anchor="w", padx=8, pady=2)
 
-        cols_w = ("id", "type", "percent")
-        self.tree_weights = ttk.Treeview(left_frame, columns=cols_w, show="headings", height=4)
-        self.tree_weights.heading("id", text="ID")
-        self.tree_weights.heading("type", text="Category")
-        self.tree_weights.heading("percent", text="Percentage (%)")
-        self.tree_weights.column("id", width=0, stretch=False)
-        self.tree_weights.column("type", width=140)
-        self.tree_weights.column("percent", width=90)
-        self.tree_weights.pack(fill="x", padx=5, pady=3)
+        period_box = ttk.LabelFrame(left_frame, text="Add Grading Period")
+        period_box.pack(fill="x", padx=5, pady=3)
+        ttk.Label(period_box, text="Name:").pack(side="left", padx=2)
+        self.entry_period_name = ttk.Entry(period_box, width=12)
+        self.entry_period_name.pack(side="left", padx=2)
+        ttk.Label(period_box, text="Order:").pack(side="left", padx=2)
+        self.entry_period_order = ttk.Entry(period_box, width=4)
+        self.entry_period_order.pack(side="left", padx=2)
+        ttk.Button(period_box, text="Add Period", command=self.add_period).pack(side="left", padx=3)
 
         # add component box
         comp_box = ttk.LabelFrame(left_frame, text="Add Assessable Component")
@@ -155,7 +143,8 @@ class ClassEnrollmentTab(ttk.Frame):
         self.cb_period = ttk.Combobox(c_row1, width=10, state="readonly")
         self.cb_period.pack(side="left", padx=2)
         ttk.Label(c_row1, text="Category:").pack(side="left", padx=2)
-        self.cb_comp_weight = ttk.Combobox(c_row1, width=12, state="readonly")
+        self.cb_comp_weight = ttk.Combobox(c_row1, values=["Quiz", "Laboratory", "Exam", "Project", "Assignment"], width=12, state="readonly")
+        self.cb_comp_weight.set("Quiz")
         self.cb_comp_weight.pack(side="left", padx=2)
 
         c_row2 = ttk.Frame(comp_box)
@@ -168,6 +157,7 @@ class ClassEnrollmentTab(ttk.Frame):
         self.entry_comp_max.insert(0, "100")
         self.entry_comp_max.pack(side="left", padx=2)
         ttk.Button(c_row2, text="Add Component", command=self.add_component).pack(side="left", padx=4)
+        ttk.Button(c_row2, text="Delete Selected", command=self.delete_component).pack(side="left", padx=4)
 
         cols_c = ("id", "period", "name", "type", "max_score")
         self.tree_comps = ttk.Treeview(left_frame, columns=cols_c, show="headings", height=4)
@@ -190,10 +180,11 @@ class ClassEnrollmentTab(ttk.Frame):
         en_ctrl = ttk.Frame(right_frame)
         en_ctrl.pack(fill="x", padx=5, pady=4)
         ttk.Label(en_ctrl, text="Select Student:").pack(side="left", padx=3)
-        self.cb_enroll_student = ttk.Combobox(en_ctrl, width=26, state="readonly")
+        self.cb_enroll_student = ttk.Combobox(en_ctrl, width=22)
         self.cb_enroll_student.pack(side="left", padx=3)
         ttk.Button(en_ctrl, text="Enroll Student", command=self.enroll_student).pack(side="left", padx=3)
         ttk.Button(en_ctrl, text="Drop Selected", command=self.drop_student).pack(side="left", padx=3)
+        ttk.Button(en_ctrl, text="Restore", command=self.restore_student).pack(side="left", padx=3)
         ttk.Button(en_ctrl, text="Remove", command=self.remove_enrollment).pack(side="left", padx=3)
 
         cols_e = ("id", "student_id", "student_name", "program", "enroll_date", "status")
@@ -206,7 +197,7 @@ class ClassEnrollmentTab(ttk.Frame):
         self.tree_enrollments.heading("status", text="Status")
 
         self.tree_enrollments.column("id", width=0, stretch=False)
-        self.tree_enrollments.column("student_id", width=0, stretch=False)
+        self.tree_enrollments.column("student_id", width=100)
         self.tree_enrollments.column("student_name", width=160)
         self.tree_enrollments.column("program", width=90)
         self.tree_enrollments.column("enroll_date", width=90)
@@ -214,75 +205,85 @@ class ClassEnrollmentTab(ttk.Frame):
         self.tree_enrollments.pack(fill="both", expand=True, padx=5, pady=4)
 
     def refresh_all(self):
-        self.load_dropdowns()
-        self.load_classes()
+        try:
+            self.load_dropdowns()
+            self.load_classes()
+            self.load_weights_and_components()
+        except Exception:
+            messagebox.showerror("Database Error", "Could not load records. Check the database connection.")
 
     def load_dropdowns(self):
         # subjects dropdown
-        subjects = self.subject_repo.find_all()
+        subjects = self.subject_service.find_all()
         self.subject_map = {f"{s.subject_code} - {s.subject_name}": s.subject_id for s in subjects}
         self.cb_subject["values"] = list(self.subject_map.keys())
 
         # teachers dropdown
-        teachers = self.teacher_repo.find_all()
+        teachers = self.teacher_service.find_all()
         self.teacher_map = {f"{t.full_name} ({t.department or 'Faculty'})": t.teacher_id for t in teachers}
         self.cb_teacher["values"] = list(self.teacher_map.keys())
 
         # students dropdown
-        students = self.student_repo.find_all()
-        self.student_map = {f"{s.full_name} - {s.email}": s.student_id for s in students}
+        students = self.student_service.find_all()
+        self.student_map = {f"{s.student_id} - {s.full_name}": s.student_id for s in students}
         self.cb_enroll_student["values"] = list(self.student_map.keys())
 
         # grading periods
-        periods = self.period_repo.find_all()
+        periods = self.config_service.get_periods()
         self.period_map = {p.name: p.period_id for p in periods}
         self.cb_period["values"] = list(self.period_map.keys())
+        self.cb_weight_period["values"] = list(self.period_map.keys())
         if self.period_map:
             self.cb_period.current(0)
+            if not self.cb_weight_period.get():
+                self.cb_weight_period.current(0)
 
     def load_classes(self):
         for r in self.tree_classes.get_children():
             self.tree_classes.delete(r)
-        classes = self.class_repo.find_all()
+        classes = self.class_service.find_all()
         for c in classes:
             self.tree_classes.insert("", "end", values=(
-                c.offering_id, c.class_code, c.subject_name or c.subject_code,
+                c.class_id, c.class_code, c.subject_name or c.subject_code,
                 c.teacher_name, c.section or "", c.schedule or "", c.room or "",
                 f"{c.semester} {c.school_year}"
             ))
 
     def on_class_select(self, event):
-        sel = self.tree_classes.selection()
-        if not sel:
-            return
-        vals = self.tree_classes.item(sel[0], "values")
-        self.selected_offering_id = vals[0]
-        offering = self.class_repo.find_by_id(self.selected_offering_id)
-        if offering:
-            self.entry_code.delete(0, "end")
-            self.entry_code.insert(0, offering.class_code)
-            self.entry_section.delete(0, "end")
-            self.entry_section.insert(0, offering.section or "")
-            self.entry_schedule.delete(0, "end")
-            self.entry_schedule.insert(0, offering.schedule or "")
-            self.entry_room.delete(0, "end")
-            self.entry_room.insert(0, offering.room or "")
-            self.entry_sy.delete(0, "end")
-            self.entry_sy.insert(0, offering.school_year)
-            self.cb_semester.set(offering.semester)
+        try:
+            sel = self.tree_classes.selection()
+            if not sel:
+                return
+            vals = self.tree_classes.item(sel[0], "values")
+            self.selected_offering_id = vals[0]
+            offering = self.class_service.find_by_id(self.selected_offering_id)
+            if offering:
+                self.entry_code.delete(0, "end")
+                self.entry_code.insert(0, offering.class_code)
+                self.entry_section.delete(0, "end")
+                self.entry_section.insert(0, offering.section or "")
+                self.entry_schedule.delete(0, "end")
+                self.entry_schedule.insert(0, offering.schedule or "")
+                self.entry_room.delete(0, "end")
+                self.entry_room.insert(0, offering.room or "")
+                self.entry_sy.delete(0, "end")
+                self.entry_sy.insert(0, offering.school_year)
+                self.cb_semester.set(offering.semester)
 
-            for disp, sid in self.subject_map.items():
-                if sid == offering.subject_id:
-                    self.cb_subject.set(disp)
-                    break
+                for disp, sid in self.subject_map.items():
+                    if sid == offering.subject_id:
+                        self.cb_subject.set(disp)
+                        break
 
-            for disp, tid in self.teacher_map.items():
-                if tid == offering.teacher_id:
-                    self.cb_teacher.set(disp)
-                    break
+                for disp, tid in self.teacher_map.items():
+                    if tid == offering.teacher_id:
+                        self.cb_teacher.set(disp)
+                        break
 
-        self.load_weights_and_components()
-        self.load_enrollments()
+            self.load_weights_and_components()
+            self.load_enrollments()
+        except Exception:
+            messagebox.showerror("Database Error", "Could not load records. Check the database connection.")
 
     def clear_class_form(self):
         self.entry_code.delete(0, "end")
@@ -296,249 +297,205 @@ class ClassEnrollmentTab(ttk.Frame):
             self.tree_classes.selection_remove(self.tree_classes.selection())
 
     def add_class(self):
-        code = self.entry_code.get().strip()
-        sub_disp = self.cb_subject.get()
-        teach_disp = self.cb_teacher.get()
-        sy = self.entry_sy.get().strip()
-        sem = self.cb_semester.get().strip()
-
-        if not code or not sub_disp or not teach_disp or not sy or not sem:
-            messagebox.showwarning("Validation", "Class Code, Subject, Teacher, School Year, and Semester are required.")
-            return
-
-        subject_id = self.subject_map.get(sub_disp)
-        teacher_id = self.teacher_map.get(teach_disp)
-
-        offering = ClassOffering(
-            class_code=code,
-            subject_id=subject_id,
-            teacher_id=teacher_id,
-            section=self.entry_section.get().strip(),
-            schedule=self.entry_schedule.get().strip(),
-            room=self.entry_room.get().strip(),
-            school_year=sy,
-            semester=sem
-        )
-        try:
-            saved = self.class_repo.save(offering)
-            messagebox.showinfo("Success", f"Class offering {saved.class_code} created.")
-            self.load_classes()
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to save class offering: {e}")
+        self.save_class_form(False)
 
     def update_class(self):
-        if not self.selected_offering_id:
-            messagebox.showwarning("No Selection", "Please select a class to update.")
+        self.save_class_form(True)
+
+    def save_class_form(self, updating):
+        if updating and not self.selected_offering_id:
+            messagebox.showwarning("No Selection", "Select a class to update.")
             return
-        code = self.entry_code.get().strip()
-        sub_disp = self.cb_subject.get()
-        teach_disp = self.cb_teacher.get()
-        sy = self.entry_sy.get().strip()
-        sem = self.cb_semester.get().strip()
-
-        subject_id = self.subject_map.get(sub_disp)
-        teacher_id = self.teacher_map.get(teach_disp)
-
-        offering = ClassOffering(
-            offering_id=self.selected_offering_id,
-            class_code=code,
-            subject_id=subject_id,
-            teacher_id=teacher_id,
-            section=self.entry_section.get().strip(),
-            schedule=self.entry_schedule.get().strip(),
-            room=self.entry_room.get().strip(),
-            school_year=sy,
-            semester=sem
-        )
         try:
-            self.class_repo.save(offering)
-            messagebox.showinfo("Success", f"Class offering {offering.class_code} updated.")
+            offering = ClassOffering(
+                class_id=self.selected_offering_id if updating else None,
+                class_code=self.entry_code.get(),
+                subject_id=self.subject_map.get(self.cb_subject.get()),
+                teacher_id=self.teacher_map.get(self.cb_teacher.get()),
+                section=self.entry_section.get(), schedule=self.entry_schedule.get(),
+                room=self.entry_room.get(), school_year=self.entry_sy.get(),
+                semester=self.cb_semester.get(),
+            )
+            self.class_service.save(offering)
+            messagebox.showinfo("Success", "Class saved.")
             self.load_classes()
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to update class: {e}")
+        except ValueError as error:
+            messagebox.showwarning("Validation", str(error))
+        except Exception:
+            messagebox.showerror("Database Error", "Could not save the class. Check the database connection.")
 
     def delete_class(self):
         if not self.selected_offering_id:
-            messagebox.showwarning("No Selection", "Please select a class to delete.")
+            messagebox.showwarning("No Selection", "Select a class to delete.")
             return
-        if not messagebox.askyesno("Confirm Delete", "Delete this class offering? All associated components, enrollments, and grades will be removed."):
+        if not messagebox.askyesno("Confirm Delete", "Delete this class?"):
             return
         try:
-            self.class_repo.delete_by_id(self.selected_offering_id)
-            messagebox.showinfo("Success", "Class offering deleted.")
+            self.class_service.delete(self.selected_offering_id)
+            messagebox.showinfo("Success", "Class deleted.")
             self.clear_class_form()
             self.load_classes()
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to delete class: {e}")
+            self.load_weights_and_components()
+            self.load_enrollments()
+        except ValueError as error:
+            messagebox.showwarning("Cannot Delete", str(error))
+        except Exception:
+            messagebox.showerror("Database Error", "Could not delete the class. Refresh and try again.")
 
-    # --- Weights and Components ---
-    def load_weights_and_components(self):
-        for r in self.tree_weights.get_children():
-            self.tree_weights.delete(r)
-        for r in self.tree_comps.get_children():
-            self.tree_comps.delete(r)
-
-        if not self.selected_offering_id:
-            return
-
-        percentages = self.percentage_repo.find_by_offering(self.selected_offering_id)
-        total = sum(p.percentage for p in percentages)
-        color = "darkgreen" if abs(total - 100.0) < 0.01 else "red"
-        self.lbl_weight_total.config(
-            text=f"Total Weight: {total:.1f}% {'(Valid)' if abs(total - 100.0) < 0.01 else '(Must equal 100%)'}",
-            foreground=color
-        )
-
-        self.perc_dropdown_map = {}
-        for p in percentages:
-            self.tree_weights.insert("", "end", values=(p.percentage_id, p.component_type, f"{p.percentage:.1f}%"))
-            self.perc_dropdown_map[f"{p.component_type} ({p.percentage:.0f}%)"] = p.percentage_id
-
-        self.cb_comp_weight["values"] = list(self.perc_dropdown_map.keys())
-        if self.perc_dropdown_map:
-            self.cb_comp_weight.current(0)
-
-        # components
-        comps = self.component_repo.find_by_offering(self.selected_offering_id)
-        for c in comps:
-            self.tree_comps.insert("", "end", values=(
-                c.component_id, c.period_name or "Period", c.name, c.type, f"{c.max_score:.1f}"
-            ))
+    def load_weights_and_components(self, event=None):
+        try:
+            for widget in self.weight_form.winfo_children():
+                widget.destroy()
+            self.weight_entries = {}
+            for row in self.tree_comps.get_children():
+                self.tree_comps.delete(row)
+            components = self.config_service.get_components()
+            for component in components:
+                self.tree_comps.insert("", "end", values=(
+                    component.component_id, component.period_name, component.name,
+                    component.type, component.max_score,
+                ))
+            period_id = self.period_map.get(self.cb_weight_period.get())
+            if not self.selected_offering_id:
+                self.lbl_weight_total.config(text="Select a class to set its weights.")
+                return
+            saved = {w.component_id: w.percentage for w in self.config_service.get_weights(self.selected_offering_id)}
+            for component in components:
+                if component.period_id != period_id:
+                    continue
+                row = len(self.weight_entries)
+                ttk.Label(self.weight_form, text=component.name).grid(row=row, column=0, sticky="w", padx=3)
+                entry = ttk.Entry(self.weight_form, width=8)
+                entry.grid(row=row, column=1, padx=3, pady=2)
+                if component.component_id in saved:
+                    entry.insert(0, f"{saved[component.component_id]:.2f}")
+                self.weight_entries[component.component_id] = entry
+            self.lbl_weight_total.config(text=self.config_service.weight_summary(self.selected_offering_id))
+        except Exception:
+            messagebox.showerror("Database Error", "Could not load records. Check the database connection.")
 
     def save_weight(self):
-        if not self.selected_offering_id:
-            messagebox.showwarning("No Class", "Select a class offering first.")
-            return
-        ctype = self.cb_weight_type.get().strip()
-        w_val_str = self.entry_weight_val.get().strip()
-        if not ctype or not w_val_str:
-            messagebox.showwarning("Validation", "Enter component type and percentage weight.")
-            return
         try:
-            val = float(w_val_str)
-            if val <= 0 or val > 100:
-                raise ValueError()
-        except ValueError:
-            messagebox.showwarning("Validation", "Weight must be between 1 and 100.")
-            return
-
-        existing = self.percentage_repo.find_by_offering(self.selected_offering_id)
-        target = None
-        for p in existing:
-            if p.component_type.lower() == ctype.lower():
-                target = p
-                break
-
-        if target:
-            target.percentage = val
-            self.percentage_repo.save(target)
-        else:
-            self.percentage_repo.save(GradePercentage(
-                offering_id=self.selected_offering_id,
-                component_type=ctype,
-                percentage=val
-            ))
-
-        self.load_weights_and_components()
-
-    def delete_weight(self):
-        sel = self.tree_weights.selection()
-        if not sel:
-            messagebox.showwarning("No Selection", "Select a weight to delete.")
-            return
-        pid = self.tree_weights.item(sel[0], "values")[0]
-        try:
-            self.percentage_repo.delete_by_id(pid)
+            values = [(component_id, entry.get()) for component_id, entry in self.weight_entries.items()]
+            message = self.config_service.save_weights(
+                self.selected_offering_id, self.period_map.get(self.cb_weight_period.get()), values,
+            )
+            messagebox.showinfo("Success", message)
             self.load_weights_and_components()
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to delete weight: {e}")
+        except ValueError as error:
+            messagebox.showwarning("Invalid Weights", str(error))
+        except Exception:
+            messagebox.showerror("Database Error", "Could not save weights. Check the database connection.")
+
+    def add_period(self):
+        try:
+            period = self.config_service.add_period(
+                self.entry_period_name.get(), self.entry_period_order.get(),
+                self.entry_sy.get(), self.cb_semester.get(),
+            )
+            self.load_dropdowns()
+            self.cb_period.set(period.name)
+            self.cb_weight_period.set(period.name)
+            self.load_weights_and_components()
+            messagebox.showinfo("Success", "Grading period added.")
+        except ValueError as error:
+            messagebox.showwarning("Validation", str(error))
+        except Exception:
+            messagebox.showerror("Database Error", "Could not save the period. Check the database connection.")
 
     def add_component(self):
-        if not self.selected_offering_id:
-            messagebox.showwarning("No Class", "Select a class offering first.")
-            return
-        p_disp = self.cb_period.get()
-        w_disp = self.cb_comp_weight.get()
-        name = self.entry_comp_name.get().strip()
-        max_s_str = self.entry_comp_max.get().strip()
-
-        if not p_disp or not w_disp or not name or not max_s_str:
-            messagebox.showwarning("Validation", "All component fields are required.")
-            return
-
         try:
-            max_s = float(max_s_str)
-            if max_s <= 0:
-                raise ValueError()
-        except ValueError:
-            messagebox.showwarning("Validation", "Max score must be greater than 0.")
-            return
-
-        period_id = self.period_map.get(p_disp)
-        percentage_id = self.perc_dropdown_map.get(w_disp)
-        ctype = w_disp.split(" (")[0]
-
-        comp = GradeComponent(
-            grading_period_id=period_id,
-            percentage_id=percentage_id,
-            name=name,
-            type=ctype,
-            max_score=max_s,
-            description=f"{name} task"
-        )
-        try:
-            self.component_repo.save(comp)
+            component = GradeComponent(
+                period_id=self.period_map.get(self.cb_period.get()),
+                name=self.entry_comp_name.get(), type=self.cb_comp_weight.get(),
+                max_score=self.entry_comp_max.get(),
+            )
+            self.config_service.add_component(component)
             self.entry_comp_name.delete(0, "end")
             self.load_weights_and_components()
-            messagebox.showinfo("Success", f"Component '{name}' added.")
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to save component: {e}")
+            messagebox.showinfo("Success", "Component added.")
+        except ValueError as error:
+            messagebox.showwarning("Validation", str(error))
+        except Exception:
+            messagebox.showerror("Database Error", "Could not save the component. Check the database connection.")
 
-    # --- Enrollments ---
-    def load_enrollments(self):
-        for r in self.tree_enrollments.get_children():
-            self.tree_enrollments.delete(r)
-        if not self.selected_offering_id:
+    def delete_component(self):
+        selected = self.tree_comps.selection()
+        if not selected:
+            messagebox.showwarning("No Selection", "Select a component to delete.")
             return
-        enrollments = self.enrollment_service.get_class_enrollments(self.selected_offering_id)
-        for e in enrollments:
-            self.tree_enrollments.insert("", "end", values=(
-                e.enrollment_id, e.student_id, e.student_name,
-                e.student_program or "", str(e.enroll_date or ""), e.status
-            ))
+        if not messagebox.askyesno("Confirm Delete", "Delete this component?"):
+            return
+        try:
+            self.config_service.delete_component(self.tree_comps.item(selected[0], "values")[0])
+            self.load_weights_and_components()
+        except ValueError as error:
+            messagebox.showwarning("Cannot Delete", str(error))
+        except Exception:
+            messagebox.showerror("Database Error", "Could not delete the component. Refresh and try again.")
+
+    def load_enrollments(self):
+        try:
+            for r in self.tree_enrollments.get_children():
+                self.tree_enrollments.delete(r)
+            if not self.selected_offering_id:
+                return
+            enrollments = self.enrollment_service.get_class_enrollments(self.selected_offering_id)
+            for e in enrollments:
+                self.tree_enrollments.insert("", "end", values=(
+                    e.enrollment_id, e.student_id, e.student_name,
+                    e.student_program or "", str(e.enroll_date or ""), e.status
+                ))
+        except Exception:
+            messagebox.showerror("Database Error", "Could not load records. Check the database connection.")
 
     def enroll_student(self):
-        if not self.selected_offering_id:
-            messagebox.showwarning("No Class", "Select a class offering first.")
-            return
-        disp = self.cb_enroll_student.get()
-        if not disp:
-            messagebox.showwarning("No Student", "Select a student to enroll.")
-            return
-        student_id = self.student_map.get(disp)
-
-        success, msg, _ = self.enrollment_service.enroll_student(student_id, self.selected_offering_id)
-        if success:
-            messagebox.showinfo("Success", msg)
-            self.load_enrollments()
-        else:
-            messagebox.showwarning("Enrollment Issue", msg)
+        try:
+            value = self.cb_enroll_student.get().strip()
+            student_id = self.student_map.get(value, value)
+            success, message, _ = self.enrollment_service.enroll_student(student_id, self.selected_offering_id)
+            if success:
+                messagebox.showinfo("Success", message)
+                self.load_enrollments()
+            else:
+                messagebox.showwarning("Enrollment Issue", message)
+        except ValueError as error:
+            messagebox.showwarning("Validation", str(error))
+        except Exception:
+            messagebox.showerror("Database Error", "Could not save the enrollment. Check the database connection.")
 
     def drop_student(self):
-        sel = self.tree_enrollments.selection()
-        if not sel:
+        self.change_status("Dropped")
+
+    def restore_student(self):
+        self.change_status("Enrolled")
+
+    def change_status(self, status):
+        selected = self.tree_enrollments.selection()
+        if not selected:
             messagebox.showwarning("No Selection", "Select an enrolled student.")
             return
-        eid = self.tree_enrollments.item(sel[0], "values")[0]
-        self.enrollment_service.drop_student(eid)
-        self.load_enrollments()
+        try:
+            enrollment_id = self.tree_enrollments.item(selected[0], "values")[0]
+            self.enrollment_service.update_status(enrollment_id, status)
+            self.load_enrollments()
+        except ValueError as error:
+            messagebox.showwarning("Validation", str(error))
+        except Exception:
+            messagebox.showerror("Database Error", "Could not update the enrollment. Check the database connection.")
 
     def remove_enrollment(self):
-        sel = self.tree_enrollments.selection()
-        if not sel:
+        selected = self.tree_enrollments.selection()
+        if not selected:
             messagebox.showwarning("No Selection", "Select an enrolled student.")
             return
-        eid = self.tree_enrollments.item(sel[0], "values")[0]
-        if messagebox.askyesno("Confirm Delete", "Remove student enrollment and associated scores?"):
-            self.enrollment_repo.delete_by_id(eid)
+        if not messagebox.askyesno("Confirm Delete", "Remove this enrollment?"):
+            return
+        try:
+            enrollment_id = self.tree_enrollments.item(selected[0], "values")[0]
+            self.enrollment_service.remove_enrollment(enrollment_id)
             self.load_enrollments()
+        except ValueError as error:
+            messagebox.showwarning("Cannot Remove", str(error))
+        except Exception:
+            messagebox.showerror("Database Error", "Could not remove the enrollment. Refresh and try again.")

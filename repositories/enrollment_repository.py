@@ -13,7 +13,7 @@ class EnrollmentRepository(Repository):
         e = Enrollment(
             enrollment_id=str(row[0]),
             student_id=str(row[1]),
-            offering_id=str(row[2]),
+            class_id=str(row[2]),
             enroll_date=row[3],
             status=row[4]
         )
@@ -30,12 +30,12 @@ class EnrollmentRepository(Repository):
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT e.enrollment_id, e.student_id, e.offering_id, e.enroll_date, e.status, "
+                "SELECT e.enrollment_id, e.student_id, e.class_id, e.enroll_date, e.status, "
                 "(s.last_name || ', ' || s.first_name) AS student_name, s.email, s.program, "
                 "co.class_code, sub.subject_name "
                 "FROM enrollments e "
                 "JOIN students s ON e.student_id = s.student_id "
-                "JOIN class_offerings co ON e.offering_id = co.offering_id "
+                "JOIN class_offerings co ON e.class_id = co.class_id "
                 "JOIN subjects sub ON co.subject_id = sub.subject_id "
                 "WHERE e.enrollment_id = %s",
                 (enrollment_id,)
@@ -51,12 +51,12 @@ class EnrollmentRepository(Repository):
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT e.enrollment_id, e.student_id, e.offering_id, e.enroll_date, e.status, "
+                "SELECT e.enrollment_id, e.student_id, e.class_id, e.enroll_date, e.status, "
                 "(s.last_name || ', ' || s.first_name) AS student_name, s.email, s.program, "
                 "co.class_code, sub.subject_name "
                 "FROM enrollments e "
                 "JOIN students s ON e.student_id = s.student_id "
-                "JOIN class_offerings co ON e.offering_id = co.offering_id "
+                "JOIN class_offerings co ON e.class_id = co.class_id "
                 "JOIN subjects sub ON co.subject_id = sub.subject_id "
                 "ORDER BY co.class_code, s.last_name, s.first_name"
             )
@@ -66,21 +66,21 @@ class EnrollmentRepository(Repository):
         finally:
             conn.close()
 
-    def find_by_offering(self, offering_id):
+    def find_by_offering(self, class_id):
         conn = self.conn_func()
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT e.enrollment_id, e.student_id, e.offering_id, e.enroll_date, e.status, "
+                "SELECT e.enrollment_id, e.student_id, e.class_id, e.enroll_date, e.status, "
                 "(s.last_name || ', ' || s.first_name) AS student_name, s.email, s.program, "
                 "co.class_code, sub.subject_name "
                 "FROM enrollments e "
                 "JOIN students s ON e.student_id = s.student_id "
-                "JOIN class_offerings co ON e.offering_id = co.offering_id "
+                "JOIN class_offerings co ON e.class_id = co.class_id "
                 "JOIN subjects sub ON co.subject_id = sub.subject_id "
-                "WHERE e.offering_id = %s "
+                "WHERE e.class_id = %s "
                 "ORDER BY s.last_name, s.first_name",
-                (offering_id,)
+                (class_id,)
             )
             rows = cur.fetchall()
             cur.close()
@@ -93,12 +93,12 @@ class EnrollmentRepository(Repository):
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT e.enrollment_id, e.student_id, e.offering_id, e.enroll_date, e.status, "
+                "SELECT e.enrollment_id, e.student_id, e.class_id, e.enroll_date, e.status, "
                 "(s.last_name || ', ' || s.first_name) AS student_name, s.email, s.program, "
                 "co.class_code, sub.subject_name "
                 "FROM enrollments e "
                 "JOIN students s ON e.student_id = s.student_id "
-                "JOIN class_offerings co ON e.offering_id = co.offering_id "
+                "JOIN class_offerings co ON e.class_id = co.class_id "
                 "JOIN subjects sub ON co.subject_id = sub.subject_id "
                 "WHERE e.student_id = %s "
                 "ORDER BY co.school_year DESC, co.semester, co.class_code",
@@ -110,14 +110,14 @@ class EnrollmentRepository(Repository):
         finally:
             conn.close()
 
-    def find_by_student_and_offering(self, student_id, offering_id):
+    def find_by_student_and_offering(self, student_id, class_id):
         conn = self.conn_func()
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT e.enrollment_id, e.student_id, e.offering_id, e.enroll_date, e.status "
-                "FROM enrollments e WHERE e.student_id = %s AND e.offering_id = %s",
-                (student_id, offering_id)
+                "SELECT e.enrollment_id, e.student_id, e.class_id, e.enroll_date, e.status "
+                "FROM enrollments e WHERE e.student_id = %s AND e.class_id = %s",
+                (student_id, class_id)
             )
             row = cur.fetchone()
             cur.close()
@@ -131,18 +131,18 @@ class EnrollmentRepository(Repository):
             cur = conn.cursor()
             if enrollment.enrollment_id:
                 cur.execute(
-                    "UPDATE enrollments SET student_id=%s, offering_id=%s, "
+                    "UPDATE enrollments SET student_id=%s, class_id=%s, "
                     "enroll_date=COALESCE(%s, CURRENT_DATE), status=%s "
                     "WHERE enrollment_id=%s RETURNING enrollment_id",
-                    (enrollment.student_id, enrollment.offering_id,
+                    (enrollment.student_id, enrollment.class_id,
                      enrollment.enroll_date, enrollment.status, enrollment.enrollment_id)
                 )
                 eid = cur.fetchone()[0]
             else:
                 cur.execute(
-                    "INSERT INTO enrollments (student_id, offering_id, enroll_date, status) "
+                    "INSERT INTO enrollments (student_id, class_id, enroll_date, status) "
                     "VALUES (%s, %s, COALESCE(%s, CURRENT_DATE), %s) RETURNING enrollment_id",
-                    (enrollment.student_id, enrollment.offering_id,
+                    (enrollment.student_id, enrollment.class_id,
                      enrollment.enroll_date, enrollment.status)
                 )
                 eid = cur.fetchone()[0]

@@ -15,9 +15,11 @@ class GradeRepository(Repository):
             enrollment_id=str(row[1]),
             midterm_grade=float(row[2]) if row[2] is not None else None,
             finals_grade=float(row[3]) if row[3] is not None else None,
-            final_grade=float(row[4]),
+            overall_grade=float(row[4]) if row[4] is not None else None,
             remarks=row[5],
-            date_encoded=row[6]
+            date_encoded=row[6],
+            midterm_equiv=float(row[7]) if row[7] is not None else None,
+            final_equiv=float(row[8]) if row[8] is not None else None
         )
 
     def find_by_id(self, grade_id):
@@ -25,7 +27,7 @@ class GradeRepository(Repository):
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT grade_id, enrollment_id, midterm_grade, finals_grade, final_grade, remarks, date_encoded "
+                "SELECT grade_id, enrollment_id, midterm_grade, finals_grade, overall_grade, remarks, date_encoded, midterm_equiv, final_equiv "
                 "FROM grades WHERE grade_id = %s",
                 (grade_id,)
             )
@@ -40,7 +42,7 @@ class GradeRepository(Repository):
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT grade_id, enrollment_id, midterm_grade, finals_grade, final_grade, remarks, date_encoded "
+                "SELECT grade_id, enrollment_id, midterm_grade, finals_grade, overall_grade, remarks, date_encoded, midterm_equiv, final_equiv "
                 "FROM grades ORDER BY date_encoded DESC"
             )
             rows = cur.fetchall()
@@ -54,7 +56,7 @@ class GradeRepository(Repository):
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT grade_id, enrollment_id, midterm_grade, finals_grade, final_grade, remarks, date_encoded "
+                "SELECT grade_id, enrollment_id, midterm_grade, finals_grade, overall_grade, remarks, date_encoded, midterm_equiv, final_equiv "
                 "FROM grades WHERE enrollment_id = %s",
                 (enrollment_id,)
             )
@@ -69,10 +71,10 @@ class GradeRepository(Repository):
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT g.grade_id, g.enrollment_id, g.midterm_grade, g.finals_grade, g.final_grade, g.remarks, g.date_encoded "
+                "SELECT g.grade_id, g.enrollment_id, g.midterm_grade, g.finals_grade, g.overall_grade, g.remarks, g.date_encoded, g.midterm_equiv, g.final_equiv "
                 "FROM grades g "
                 "JOIN enrollments e ON g.enrollment_id = e.enrollment_id "
-                "WHERE e.offering_id = %s",
+                "WHERE e.class_id = %s",
                 (offering_id,)
             )
             rows = cur.fetchall()
@@ -87,17 +89,20 @@ class GradeRepository(Repository):
         try:
             cur = conn.cursor()
             cur.execute(
-                "INSERT INTO grades (enrollment_id, midterm_grade, finals_grade, final_grade, remarks, date_encoded) "
-                "VALUES (%s, %s, %s, %s, %s, COALESCE(%s, CURRENT_DATE)) "
+                "INSERT INTO grades (enrollment_id, midterm_grade, finals_grade, overall_grade, remarks, date_encoded, midterm_equiv, final_equiv) "
+                "VALUES (%s, %s, %s, %s, %s, COALESCE(%s, CURRENT_DATE), %s, %s) "
                 "ON CONFLICT (enrollment_id) DO UPDATE SET "
                 "midterm_grade = EXCLUDED.midterm_grade, "
                 "finals_grade = EXCLUDED.finals_grade, "
-                "final_grade = EXCLUDED.final_grade, "
+                "overall_grade = EXCLUDED.overall_grade, "
+                "midterm_equiv = EXCLUDED.midterm_equiv, "
+                "final_equiv = EXCLUDED.final_equiv, "
                 "remarks = EXCLUDED.remarks, "
                 "date_encoded = EXCLUDED.date_encoded "
                 "RETURNING grade_id",
                 (grade.enrollment_id, grade.midterm_grade, grade.finals_grade,
-                 grade.final_grade, grade.remarks, grade.date_encoded)
+                 grade.overall_grade, grade.remarks, grade.date_encoded,
+                 grade.midterm_equiv, grade.final_equiv)
             )
             gid = cur.fetchone()[0]
             conn.commit()

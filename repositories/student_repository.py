@@ -16,7 +16,8 @@ class StudentRepository(Repository):
             last_name=row[2],
             email=row[3],
             program=row[4],
-            status=row[5]
+            year_level=row[5],
+            status=row[6]
         )
 
     def find_by_id(self, student_id):
@@ -24,7 +25,7 @@ class StudentRepository(Repository):
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT student_id, first_name, last_name, email, program, status "
+                "SELECT student_id, first_name, last_name, email, program, year_level, status "
                 "FROM students WHERE student_id = %s",
                 (student_id,)
             )
@@ -39,7 +40,7 @@ class StudentRepository(Repository):
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT student_id, first_name, last_name, email, program, status "
+                "SELECT student_id, first_name, last_name, email, program, year_level, status "
                 "FROM students ORDER BY last_name, first_name"
             )
             rows = cur.fetchall()
@@ -54,7 +55,7 @@ class StudentRepository(Repository):
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT student_id, first_name, last_name, email, program, status "
+                "SELECT student_id, first_name, last_name, email, program, year_level, status "
                 "FROM students "
                 "WHERE first_name ILIKE %s OR last_name ILIKE %s OR email ILIKE %s OR program ILIKE %s "
                 "ORDER BY last_name, first_name",
@@ -70,21 +71,22 @@ class StudentRepository(Repository):
         conn = self.conn_func()
         try:
             cur = conn.cursor()
-            if student.student_id:
+            cur.execute("SELECT student_id FROM students WHERE student_id = %s", (student.student_id,))
+            if cur.fetchone():
                 cur.execute(
                     "UPDATE students SET first_name=%s, last_name=%s, email=%s, "
-                    "program=%s, status=%s "
+                    "program=%s, year_level=%s, status=%s "
                     "WHERE student_id=%s RETURNING student_id",
-                    (student.first_name, student.last_name, student.email,
-                     student.program, student.status, student.student_id)
+                    (student.first_name, student.last_name, student.email or None,
+                     student.program, student.year_level, student.status, student.student_id)
                 )
                 sid = cur.fetchone()[0]
             else:
                 cur.execute(
-                    "INSERT INTO students (first_name, last_name, email, program, status) "
-                    "VALUES (%s, %s, %s, %s, %s) RETURNING student_id",
-                    (student.first_name, student.last_name, student.email,
-                     student.program, student.status)
+                    "INSERT INTO students (student_id, first_name, last_name, email, program, year_level, status) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING student_id",
+                    (student.student_id, student.first_name, student.last_name, student.email or None,
+                     student.program, student.year_level, student.status)
                 )
                 sid = cur.fetchone()[0]
             conn.commit()

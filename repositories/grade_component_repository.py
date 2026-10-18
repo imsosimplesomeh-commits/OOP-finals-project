@@ -12,16 +12,16 @@ class GradeComponentRepository(Repository):
     def _row_to_component(self, row, detailed=False):
         gc = GradeComponent(
             component_id=str(row[0]),
-            grading_period_id=str(row[1]),
-            percentage_id=str(row[2]),
-            name=row[3],
-            type=row[4],
-            max_score=float(row[5]),
-            description=row[6]
+            period_id=str(row[1]),
+            name=row[2],
+            type=row[3],
+            max_score=float(row[4]),
+            description=row[5]
         )
-        if detailed and len(row) >= 9:
-            gc.period_name = row[7]
-            gc.percentage_value = float(row[8]) if row[8] is not None else None
+        if detailed and len(row) >= 7:
+            gc.period_name = row[6]
+            if len(row) >= 8:
+                gc.percentage_value = float(row[7]) if row[7] is not None else None
         return gc
 
     def find_by_id(self, component_id):
@@ -29,12 +29,11 @@ class GradeComponentRepository(Repository):
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT gc.component_id, gc.grading_period_id, gc.percentage_id, "
+                "SELECT gc.component_id, gc.period_id, "
                 "gc.name, gc.type, gc.max_score, gc.description, "
-                "gp.name AS period_name, gp_perc.percentage AS percentage_val "
+                "gp.name AS period_name "
                 "FROM grade_components gc "
-                "JOIN grading_periods gp ON gc.grading_period_id = gp.period_id "
-                "JOIN grade_percentages gp_perc ON gc.percentage_id = gp_perc.percentage_id "
+                "JOIN grading_periods gp ON gc.period_id = gp.period_id "
                 "WHERE gc.component_id = %s",
                 (component_id,)
             )
@@ -49,13 +48,12 @@ class GradeComponentRepository(Repository):
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT gc.component_id, gc.grading_period_id, gc.percentage_id, "
+                "SELECT gc.component_id, gc.period_id, "
                 "gc.name, gc.type, gc.max_score, gc.description, "
-                "gp.name AS period_name, gp_perc.percentage AS percentage_val "
+                "gp.name AS period_name "
                 "FROM grade_components gc "
-                "JOIN grading_periods gp ON gc.grading_period_id = gp.period_id "
-                "JOIN grade_percentages gp_perc ON gc.percentage_id = gp_perc.percentage_id "
-                "ORDER BY gp.name, gc.name"
+                "JOIN grading_periods gp ON gc.period_id = gp.period_id "
+                "ORDER BY gp.period_order, gc.component_id"
             )
             rows = cur.fetchall()
             cur.close()
@@ -68,14 +66,14 @@ class GradeComponentRepository(Repository):
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT gc.component_id, gc.grading_period_id, gc.percentage_id, "
+                "SELECT gc.component_id, gc.period_id, "
                 "gc.name, gc.type, gc.max_score, gc.description, "
-                "gp.name AS period_name, gp_perc.percentage AS percentage_val "
+                "gp.name AS period_name, gp_perc.percentage "
                 "FROM grade_components gc "
-                "JOIN grading_periods gp ON gc.grading_period_id = gp.period_id "
-                "JOIN grade_percentages gp_perc ON gc.percentage_id = gp_perc.percentage_id "
-                "WHERE gp_perc.offering_id = %s "
-                "ORDER BY gp.name, gc.type, gc.name",
+                "JOIN grading_periods gp ON gc.period_id = gp.period_id "
+                "JOIN grade_percentages gp_perc ON gc.component_id = gp_perc.component_id "
+                "WHERE gp_perc.class_id = %s "
+                "ORDER BY gp.period_order, gc.component_id",
                 (offering_id,)
             )
             rows = cur.fetchall()
@@ -89,13 +87,13 @@ class GradeComponentRepository(Repository):
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT gc.component_id, gc.grading_period_id, gc.percentage_id, "
+                "SELECT gc.component_id, gc.period_id, "
                 "gc.name, gc.type, gc.max_score, gc.description, "
-                "gp.name AS period_name, gp_perc.percentage AS percentage_val "
+                "gp.name AS period_name, gp_perc.percentage "
                 "FROM grade_components gc "
-                "JOIN grading_periods gp ON gc.grading_period_id = gp.period_id "
-                "JOIN grade_percentages gp_perc ON gc.percentage_id = gp_perc.percentage_id "
-                "WHERE gp_perc.offering_id = %s AND gc.grading_period_id = %s "
+                "JOIN grading_periods gp ON gc.period_id = gp.period_id "
+                "JOIN grade_percentages gp_perc ON gc.component_id = gp_perc.component_id "
+                "WHERE gp_perc.class_id = %s AND gc.period_id = %s "
                 "ORDER BY gc.type, gc.name",
                 (offering_id, period_id)
             )
@@ -111,19 +109,19 @@ class GradeComponentRepository(Repository):
             cur = conn.cursor()
             if component.component_id:
                 cur.execute(
-                    "UPDATE grade_components SET grading_period_id=%s, percentage_id=%s, "
+                    "UPDATE grade_components SET period_id=%s, "
                     "name=%s, type=%s, max_score=%s, description=%s "
                     "WHERE component_id=%s RETURNING component_id",
-                    (component.grading_period_id, component.percentage_id,
+                    (component.period_id,
                      component.name, component.type, component.max_score,
                      component.description, component.component_id)
                 )
                 cid = cur.fetchone()[0]
             else:
                 cur.execute(
-                    "INSERT INTO grade_components (grading_period_id, percentage_id, name, type, max_score, description) "
-                    "VALUES (%s, %s, %s, %s, %s, %s) RETURNING component_id",
-                    (component.grading_period_id, component.percentage_id,
+                    "INSERT INTO grade_components (period_id, name, type, max_score, description) "
+                    "VALUES (%s, %s, %s, %s, %s) RETURNING component_id",
+                    (component.period_id,
                      component.name, component.type, component.max_score, component.description)
                 )
                 cid = cur.fetchone()[0]

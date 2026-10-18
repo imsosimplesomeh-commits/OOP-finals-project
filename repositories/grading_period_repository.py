@@ -16,7 +16,8 @@ class GradingPeriodRepository(Repository):
             start_date=row[2],
             end_date=row[3],
             school_year=row[4],
-            semester=row[5]
+            semester=row[5],
+            period_order=row[6]
         )
 
     def find_by_id(self, period_id):
@@ -24,7 +25,7 @@ class GradingPeriodRepository(Repository):
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT period_id, name, start_date, end_date, school_year, semester "
+                "SELECT period_id, name, start_date, end_date, school_year, semester, period_order "
                 "FROM grading_periods WHERE period_id = %s",
                 (period_id,)
             )
@@ -39,8 +40,8 @@ class GradingPeriodRepository(Repository):
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT period_id, name, start_date, end_date, school_year, semester "
-                "FROM grading_periods ORDER BY start_date"
+                "SELECT period_id, name, start_date, end_date, school_year, semester, period_order "
+                "FROM grading_periods ORDER BY period_order, period_id"
             )
             rows = cur.fetchall()
             cur.close()
@@ -53,8 +54,8 @@ class GradingPeriodRepository(Repository):
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT period_id, name, start_date, end_date, school_year, semester "
-                "FROM grading_periods WHERE school_year = %s AND semester = %s ORDER BY start_date",
+                "SELECT period_id, name, start_date, end_date, school_year, semester, period_order "
+                "FROM grading_periods WHERE school_year = %s AND semester = %s ORDER BY period_order, period_id",
                 (school_year, semester)
             )
             rows = cur.fetchall()
@@ -70,17 +71,17 @@ class GradingPeriodRepository(Repository):
             if period.period_id:
                 cur.execute(
                     "UPDATE grading_periods SET name=%s, start_date=%s, end_date=%s, "
-                    "school_year=%s, semester=%s WHERE period_id=%s RETURNING period_id",
+                    "school_year=%s, semester=%s, period_order=%s WHERE period_id=%s RETURNING period_id",
                     (period.name, period.start_date, period.end_date,
-                     period.school_year, period.semester, period.period_id)
+                     period.school_year, period.semester, period.period_order, period.period_id)
                 )
                 pid = cur.fetchone()[0]
             else:
                 cur.execute(
-                    "INSERT INTO grading_periods (name, start_date, end_date, school_year, semester) "
-                    "VALUES (%s, %s, %s, %s, %s) RETURNING period_id",
+                    "INSERT INTO grading_periods (name, start_date, end_date, school_year, semester, period_order) "
+                    "VALUES (%s, %s, %s, %s, %s, %s) RETURNING period_id",
                     (period.name, period.start_date, period.end_date,
-                     period.school_year, period.semester)
+                     period.school_year, period.semester, period.period_order)
                 )
                 pid = cur.fetchone()[0]
             conn.commit()

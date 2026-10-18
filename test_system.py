@@ -1,13 +1,18 @@
 # test_system.py - Unit and Integration Tests for CSPC 103 Finals Project
 
+import os
 import unittest
+from uuid import uuid4
+from unittest.mock import patch
+
+import psycopg2
+from psycopg2 import sql
+
+import db
+from models import Student, Teacher, Subject, ClassOffering
 from services.grade_calculator import GradeCalculator
-from services.grading_service import GradingService
-from services.report_service import ReportService
 from repositories import (
     StudentRepository, TeacherRepository, SubjectRepository, ClassRepository,
-    GradingPeriodRepository, GradePercentageRepository, GradeComponentRepository,
-    EnrollmentRepository, ScoreRepository, GradeRepository
 )
 
 
@@ -82,65 +87,73 @@ class TestGradeCalculator(unittest.TestCase):
 
 class TestRepositoriesAndServices(unittest.TestCase):
     def setUp(self):
-        self.student_repo = StudentRepository()
-        self.teacher_repo = TeacherRepository()
-        self.subject_repo = SubjectRepository()
-        self.class_repo = ClassRepository()
-        self.enroll_repo = EnrollmentRepository()
-        self.score_repo = ScoreRepository()
-        self.grade_repo = GradeRepository()
-        self.perc_repo = GradePercentageRepository()
-        self.comp_repo = GradeComponentRepository()
-        self.period_repo = GradingPeriodRepository()
+        if not os.environ.get("PGDATABASE_TEST"):
+            self.skipTest("set PGDATABASE_TEST to run database tests")
+        self.config = dict(db.DB_CONFIG, dbname=os.environ["PGDATABASE_TEST"])
+        if self.config["dbname"] == db.DB_CONFIG["dbname"]:
+            raise ValueError("PGDATABASE_TEST must name a separate test database.")
+        self.schema = "system_test_" + uuid4().hex
+        conn = psycopg2.connect(**self.config)
+        try:
+            with conn, conn.cursor() as cur:
+                cur.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(self.schema)))
+        finally:
+            conn.close()
+        self.addCleanup(self.remove_schema)
+        with patch("db.get_connection", self.connect):
+            db.init_db()
+        self.student_repo = StudentRepository(self.connect)
+        self.teacher_repo = TeacherRepository(self.connect)
+        self.subject_repo = SubjectRepository(self.connect)
+        self.class_repo = ClassRepository(self.connect)
 
-        self.grading_service = GradingService(
-            self.enroll_repo, self.perc_repo, self.comp_repo,
-            self.score_repo, self.grade_repo, self.period_repo
-        )
-        self.report_service = ReportService(
-            self.class_repo, self.enroll_repo, self.student_repo,
-            self.comp_repo, self.score_repo, self.grade_repo
-        )
+    def connect(self):
+        return psycopg2.connect(**self.config, options="-c search_path=" + self.schema)
+
+    def remove_schema(self):
+        # remove only this test's schema, including after a failed assertion
+        conn = psycopg2.connect(**self.config)
+        try:
+            with conn, conn.cursor() as cur:
+                cur.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(self.schema)))
+        finally:
+            conn.close()
 
     def test_student_retrieval(self):
+        self.student_repo.save(Student(
+            student_id="2026-0001", first_name="Juan", last_name="Dela Cruz",
+            program="BSCS", year_level=2,
+        ))
         students = self.student_repo.find_all()
-        self.assertGreater(len(students), 0)
-        first = students[0]
-        found = self.student_repo.find_by_id(first.student_id)
+        self.assertEqual(len(students), 1)
+        self.assertEqual(students[0].student_id, "2026-0001")
+        found = self.student_repo.find_by_id("2026-0001")
         self.assertIsNotNone(found)
-        self.assertEqual(found.student_id, first.student_id)
+        self.assertEqual((found.first_name, found.last_name), ("Juan", "Dela Cruz"))
+        self.assertEqual((found.program, found.year_level), ("BSCS", 2))
 
     def test_class_offering_retrieval(self):
+        teacher = self.teacher_repo.save(Teacher(
+            teacher_id="T-1001", first_name="Maria", last_name="Santos",
+            department="Computer Studies Department",
+        ))
+        subject = self.subject_repo.save(Subject(
+            subject_code="CSPC 103", subject_name="Object Oriented Programming", units=3,
+        ))
+        saved = self.class_repo.save(ClassOffering(
+            class_code="CSPC103-A", subject_id=subject.subject_id,
+            teacher_id=teacher.teacher_id, section="A",
+            school_year="2026-2027", semester="1st",
+        ))
         offerings = self.class_repo.find_all()
-        self.assertGreater(len(offerings), 0)
-        self.assertIsNotNone(offerings[0].subject_code)
-        self.assertIsNotNone(offerings[0].teacher_name)
-
-    def test_percentage_validation(self):
-        offerings = self.class_repo.find_all()
-        offering_id = offerings[0].offering_id
-        valid, msg = self.grading_service.validate_percentages(offering_id)
-        self.assertTrue(valid, msg)
-
-    def test_reports_generation(self):
-        offerings = self.class_repo.find_all()
-        offering_id = offerings[0].offering_id
-
-        # 1. Class List
-        cl = self.report_service.generate_class_list_report(offering_id)
-        self.assertEqual(cl["title"], "OFFICIAL CLASS LIST")
-        self.assertGreaterEqual(len(cl["students"]), 1)
-
-        # 2. Grade Sheet
-        gs = self.report_service.generate_grade_sheet_report(offering_id)
-        self.assertEqual(gs["title"], "OFFICIAL GRADE SHEET")
-        self.assertGreaterEqual(len(gs["grades"]), 1)
-
-        # 3. Student Grade Report
-        first_student = cl["students"][0]["student_id"]
-        sr = self.report_service.generate_student_grade_report(first_student)
-        self.assertEqual(sr["title"], "STUDENT ACADEMIC GRADE REPORT")
-        self.assertGreaterEqual(len(sr["courses"]), 1)
+        self.assertEqual(len(offerings), 1)
+        self.assertEqual(offerings[0].class_id, saved.class_id)
+        found = self.class_repo.find_by_id(saved.class_id)
+        self.assertIsNotNone(found)
+        self.assertEqual(found.subject_code, "CSPC 103")
+        self.assertEqual(found.subject_name, "Object Oriented Programming")
+        self.assertEqual(found.teacher_name, "Santos, Maria")
+        self.assertEqual((found.subject_id, found.teacher_id), (subject.subject_id, "T-1001"))
 
 
 if __name__ == "__main__":

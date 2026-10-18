@@ -1,7 +1,7 @@
 # models/__init__.py - domain models matching the uml class diagram
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 
 
@@ -10,9 +10,10 @@ class Student:
     student_id: Optional[str] = None
     first_name: str = ""
     last_name: str = ""
-    email: str = ""
+    email: Optional[str] = None
     program: Optional[str] = None
-    status: str = "active"
+    year_level: Optional[int] = None
+    status: str = "Active"
 
     @property
     def full_name(self) -> str:
@@ -24,9 +25,9 @@ class Teacher:
     teacher_id: Optional[str] = None
     first_name: str = ""
     last_name: str = ""
-    email: str = ""
+    email: Optional[str] = None
     department: Optional[str] = None
-    status: str = "active"
+    status: str = "Active"
 
     @property
     def full_name(self) -> str:
@@ -44,7 +45,7 @@ class Subject:
 
 @dataclass
 class ClassOffering:
-    offering_id: Optional[str] = None
+    class_id: Optional[str] = None
     class_code: str = ""
     schedule: Optional[str] = None
     section: Optional[str] = None
@@ -70,6 +71,7 @@ class ClassOffering:
 class GradingPeriod:
     period_id: Optional[str] = None
     name: str = ""
+    period_order: Optional[int] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     school_year: str = ""
@@ -79,16 +81,15 @@ class GradingPeriod:
 @dataclass
 class GradePercentage:
     percentage_id: Optional[str] = None
-    offering_id: str = ""
-    component_type: str = ""
+    class_id: str = ""
+    component_id: str = ""
     percentage: float = 0.0
 
 
 @dataclass
 class GradeComponent:
     component_id: Optional[str] = None
-    grading_period_id: str = ""
-    percentage_id: str = ""
+    period_id: str = ""
     name: str = ""
     type: str = ""
     max_score: float = 100.0
@@ -103,9 +104,9 @@ class GradeComponent:
 class Enrollment:
     enrollment_id: Optional[str] = None
     student_id: str = ""
-    offering_id: str = ""
+    class_id: str = ""
     enroll_date: Optional[date] = None
-    status: str = "enrolled"
+    status: str = "Enrolled"
 
     # extra info from joins
     student_name: Optional[str] = None
@@ -133,8 +134,22 @@ class GradeComponentScore:
 class Grade:
     grade_id: Optional[str] = None
     enrollment_id: str = ""
-    final_grade: float = 0.0
+    overall_grade: Optional[float] = None
+    midterm_equiv: Optional[float] = None
+    final_equiv: Optional[float] = None
     remarks: Optional[str] = None
     date_encoded: Optional[date] = None
     midterm_grade: Optional[float] = None
     finals_grade: Optional[float] = None
+
+
+@dataclass
+class AuditLog:
+    log_id: Optional[str] = None
+    table_name: str = ""
+    record_id: str = ""
+    action: str = ""
+    old_value: Optional[str] = None
+    new_value: Optional[str] = None
+    changed_by: str = ""
+    changed_at: Optional[datetime] = None

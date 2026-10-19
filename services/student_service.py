@@ -3,9 +3,9 @@ from services.validation import required, positive_integer
 
 
 class StudentService:
-    def __init__(self, student_repo=None, enrollment_repo=None):
-        self.repo = student_repo or StudentRepository()
-        self.enrollments = enrollment_repo or EnrollmentRepository()
+    def __init__(self):
+        self.repo = StudentRepository()
+        self.enrollments = EnrollmentRepository()
 
     def find_all(self):
         return self.repo.find_all()

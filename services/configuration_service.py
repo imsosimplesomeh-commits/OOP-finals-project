@@ -6,13 +6,12 @@ from services.validation import required, positive_integer, number
 
 
 class ConfigurationService:
-    def __init__(self, class_repo=None, period_repo=None, component_repo=None,
-                 percentage_repo=None, score_repo=None):
-        self.classes = class_repo or ClassRepository()
-        self.periods = period_repo or GradingPeriodRepository()
-        self.components = component_repo or GradeComponentRepository()
-        self.weights = percentage_repo or GradePercentageRepository()
-        self.scores = score_repo or ScoreRepository()
+    def __init__(self):
+        self.classes = ClassRepository()
+        self.periods = GradingPeriodRepository()
+        self.components = GradeComponentRepository()
+        self.weights = GradePercentageRepository()
+        self.scores = ScoreRepository()
 
     def get_periods(self):
         return self.periods.find_all()

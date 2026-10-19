@@ -6,9 +6,6 @@ from repositories.base_repository import Repository
 
 
 class SubjectRepository(Repository):
-    def __init__(self, conn_func=get_connection):
-        self.conn_func = conn_func
-
     def _row_to_subject(self, row):
         return Subject(
             subject_id=str(row[0]),
@@ -19,7 +16,7 @@ class SubjectRepository(Repository):
         )
 
     def find_by_id(self, subject_id):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -34,7 +31,7 @@ class SubjectRepository(Repository):
             conn.close()
 
     def find_all(self):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -48,7 +45,7 @@ class SubjectRepository(Repository):
             conn.close()
 
     def save(self, subject):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             if subject.subject_id:
@@ -78,7 +75,7 @@ class SubjectRepository(Repository):
             conn.close()
 
     def delete_by_id(self, subject_id):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute("DELETE FROM subjects WHERE subject_id = %s", (subject_id,))

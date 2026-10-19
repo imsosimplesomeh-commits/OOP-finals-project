@@ -3,11 +3,8 @@ from psycopg2.extras import RealDictCursor
 
 
 class ReportRepository:
-    def __init__(self, conn_func=get_connection):
-        self.conn_func = conn_func
-
     def _read(self, query, params):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute(query, params)

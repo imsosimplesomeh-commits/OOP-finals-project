@@ -3,9 +3,9 @@ from services.validation import required, positive_integer
 
 
 class SubjectService:
-    def __init__(self, subject_repo=None, class_repo=None):
-        self.repo = subject_repo or SubjectRepository()
-        self.classes = class_repo or ClassRepository()
+    def __init__(self):
+        self.repo = SubjectRepository()
+        self.classes = ClassRepository()
 
     def find_all(self):
         return self.repo.find_all()

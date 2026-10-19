@@ -6,9 +6,6 @@ from models import AuditLog
 
 
 class AuditRepository:
-    def __init__(self, conn_func=get_connection):
-        self.conn_func = conn_func
-
     def log_change(self, cur, table_name, record_id, action, old_value, new_value, changed_by=None):
         if old_value == new_value:
             return
@@ -24,7 +21,7 @@ class AuditRepository:
         )
 
     def find_all(self):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             with conn.cursor() as cur:
                 cur.execute(

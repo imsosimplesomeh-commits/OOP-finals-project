@@ -6,9 +6,6 @@ from repositories.base_repository import Repository
 
 
 class ClassRepository(Repository):
-    def __init__(self, conn_func=get_connection):
-        self.conn_func = conn_func
-
     def _row_to_offering(self, row, detailed=False):
         offering = ClassOffering(
             class_id=str(row[0]),
@@ -28,7 +25,7 @@ class ClassRepository(Repository):
         return offering
 
     def find_by_id(self, class_id):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -48,7 +45,7 @@ class ClassRepository(Repository):
             conn.close()
 
     def find_all(self):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -67,7 +64,7 @@ class ClassRepository(Repository):
             conn.close()
 
     def save(self, offering):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             if offering.class_id:
@@ -101,7 +98,7 @@ class ClassRepository(Repository):
             conn.close()
 
     def delete_by_id(self, class_id):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute("DELETE FROM class_offerings WHERE class_id = %s", (class_id,))

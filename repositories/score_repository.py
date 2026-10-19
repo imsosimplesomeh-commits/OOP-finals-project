@@ -7,9 +7,8 @@ from repositories.audit_repository import AuditRepository
 
 
 class ScoreRepository(Repository):
-    def __init__(self, conn_func=get_connection, audit_repo=None):
-        self.conn_func = conn_func
-        self.audit = audit_repo or AuditRepository(conn_func)
+    def __init__(self):
+        self.audit = AuditRepository()
 
     def _row_to_score(self, row, detailed=False):
         s = GradeComponentScore(
@@ -27,7 +26,7 @@ class ScoreRepository(Repository):
         return s
 
     def find_by_id(self, score_id):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -45,7 +44,7 @@ class ScoreRepository(Repository):
             conn.close()
 
     def find_all(self):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -63,7 +62,7 @@ class ScoreRepository(Repository):
 
     def find_by_enrollment(self, enrollment_id, connection=None):
         own_connection = connection is None
-        conn = self.conn_func() if own_connection else connection
+        conn = get_connection() if own_connection else connection
         try:
             cur = conn.cursor()
             cur.execute(
@@ -83,7 +82,7 @@ class ScoreRepository(Repository):
                 conn.close()
 
     def find_by_enrollment_and_component(self, enrollment_id, component_id):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -102,7 +101,7 @@ class ScoreRepository(Repository):
 
     def save(self, score, changed_by=None, connection=None):
         own_connection = connection is None
-        conn = self.conn_func() if own_connection else connection
+        conn = get_connection() if own_connection else connection
         try:
             with conn.cursor() as cur:
                 # the parent lock also protects the first score insert
@@ -142,7 +141,7 @@ class ScoreRepository(Repository):
 
     def delete_by_id(self, score_id, changed_by=None, connection=None):
         own_connection = connection is None
-        conn = self.conn_func() if own_connection else connection
+        conn = get_connection() if own_connection else connection
         try:
             with conn.cursor() as cur:
                 cur.execute("SELECT enrollment_id FROM grade_component_scores WHERE score_id = %s", (score_id,))

@@ -50,7 +50,11 @@ class StudentManagementView(ttk.Frame):
         self.load_data()
 
     def _build_ui(self):
-        # input form
+        self._build_form()
+        self._build_buttons()
+        self._build_table()
+
+    def _build_form(self):
         form_frame = ttk.LabelFrame(self, text="Student Details")
         form_frame.pack(fill="x", padx=10, pady=8)
 
@@ -75,7 +79,6 @@ class StudentManagementView(ttk.Frame):
             entry.grid(row=r, column=c + 1, padx=6, pady=4, sticky="w")
             self.entries[key] = entry
 
-        # search bar
         search_frame = ttk.Frame(form_frame)
         search_frame.grid(row=3, column=2, columnspan=2, padx=6, pady=4, sticky="w")
         ttk.Label(search_frame, text="Search:").pack(side="left", padx=2)
@@ -84,7 +87,7 @@ class StudentManagementView(ttk.Frame):
         ttk.Button(search_frame, text="Find", command=self.search_data).pack(side="left", padx=2)
         ttk.Button(search_frame, text="Reset", command=self.load_data).pack(side="left", padx=2)
 
-        # action buttons
+    def _build_buttons(self):
         btn_frame = ttk.Frame(self)
         btn_frame.pack(fill="x", padx=10, pady=4)
         ttk.Button(btn_frame, text="Add Student", command=self.add_student).pack(side="left", padx=4)
@@ -93,7 +96,7 @@ class StudentManagementView(ttk.Frame):
         ttk.Button(btn_frame, text="Clear Form", command=self.clear_form).pack(side="left", padx=4)
         ttk.Button(btn_frame, text="Refresh", command=self.load_data).pack(side="left", padx=4)
 
-        # table
+    def _build_table(self):
         cols = ("id", "first_name", "last_name", "email", "program", "status", "year_level")
         self.tree = ttk.Treeview(self, columns=cols, show="headings", height=12)
         style_table(self.tree)
@@ -120,11 +123,11 @@ class StudentManagementView(ttk.Frame):
 
         self.tree.bind("<<TreeviewSelect>>", self.on_select)
 
-    def load_data(self):
+    def load_data(self, query=""):
         for row in self.tree.get_children():
             self.tree.delete(row)
         try:
-            students = self.service.find_all()
+            students = self.service.search(query) if query else self.service.find_all()
             for index, s in enumerate(students):
                 self.tree.insert("", "end", tags=("even" if index % 2 == 0 else "odd",), values=(
                     s.student_id, s.first_name, s.last_name, s.email or "", s.program or "", s.status, s.year_level
@@ -133,20 +136,7 @@ class StudentManagementView(ttk.Frame):
             messagebox.showerror("Error", "Could not load records. Check the database connection.")
 
     def search_data(self):
-        query = self.search_entry.get().strip()
-        if not query:
-            self.load_data()
-            return
-        for row in self.tree.get_children():
-            self.tree.delete(row)
-        try:
-            students = self.service.search(query)
-            for index, s in enumerate(students):
-                self.tree.insert("", "end", tags=("even" if index % 2 == 0 else "odd",), values=(
-                    s.student_id, s.first_name, s.last_name, s.email or "", s.program or "", s.status, s.year_level
-                ))
-        except Exception:
-            messagebox.showerror("Error", "Could not load records. Check the database connection.")
+        self.load_data(self.search_entry.get().strip())
 
     def on_select(self, event):
         sel = self.tree.selection()
@@ -238,6 +228,11 @@ class TeacherManagementView(ttk.Frame):
         self.load_data()
 
     def _build_ui(self):
+        self._build_form()
+        self._build_buttons()
+        self._build_table()
+
+    def _build_form(self):
         form_frame = ttk.LabelFrame(self, text="Teacher Details")
         form_frame.pack(fill="x", padx=10, pady=8)
 
@@ -261,7 +256,6 @@ class TeacherManagementView(ttk.Frame):
             entry.grid(row=r, column=c + 1, padx=6, pady=4, sticky="w")
             self.entries[key] = entry
 
-        # search bar
         search_frame = ttk.Frame(form_frame)
         search_frame.grid(row=3, column=2, columnspan=2, padx=6, pady=4, sticky="w")
         ttk.Label(search_frame, text="Search:").pack(side="left", padx=2)
@@ -270,7 +264,7 @@ class TeacherManagementView(ttk.Frame):
         ttk.Button(search_frame, text="Find", command=self.search_data).pack(side="left", padx=2)
         ttk.Button(search_frame, text="Reset", command=self.load_data).pack(side="left", padx=2)
 
-        # buttons
+    def _build_buttons(self):
         btn_frame = ttk.Frame(self)
         btn_frame.pack(fill="x", padx=10, pady=4)
         ttk.Button(btn_frame, text="Add Teacher", command=self.add_teacher).pack(side="left", padx=4)
@@ -279,7 +273,7 @@ class TeacherManagementView(ttk.Frame):
         ttk.Button(btn_frame, text="Clear Form", command=self.clear_form).pack(side="left", padx=4)
         ttk.Button(btn_frame, text="Refresh", command=self.load_data).pack(side="left", padx=4)
 
-        # table
+    def _build_table(self):
         cols = ("id", "first_name", "last_name", "email", "department", "status")
         self.tree = ttk.Treeview(self, columns=cols, show="headings", height=12)
         style_table(self.tree)
@@ -304,11 +298,11 @@ class TeacherManagementView(ttk.Frame):
 
         self.tree.bind("<<TreeviewSelect>>", self.on_select)
 
-    def load_data(self):
+    def load_data(self, query=""):
         for row in self.tree.get_children():
             self.tree.delete(row)
         try:
-            teachers = self.service.find_all()
+            teachers = self.service.search(query) if query else self.service.find_all()
             for index, t in enumerate(teachers):
                 self.tree.insert("", "end", tags=("even" if index % 2 == 0 else "odd",), values=(
                     t.teacher_id, t.first_name, t.last_name, t.email or "", t.department or "", t.status
@@ -317,20 +311,7 @@ class TeacherManagementView(ttk.Frame):
             messagebox.showerror("Error", "Could not load records. Check the database connection.")
 
     def search_data(self):
-        query = self.search_entry.get().strip()
-        if not query:
-            self.load_data()
-            return
-        for row in self.tree.get_children():
-            self.tree.delete(row)
-        try:
-            teachers = self.service.search(query)
-            for index, t in enumerate(teachers):
-                self.tree.insert("", "end", tags=("even" if index % 2 == 0 else "odd",), values=(
-                    t.teacher_id, t.first_name, t.last_name, t.email or "", t.department or "", t.status
-                ))
-        except Exception:
-            messagebox.showerror("Error", "Could not load records. Check the database connection.")
+        self.load_data(self.search_entry.get().strip())
 
     def on_select(self, event):
         sel = self.tree.selection()
@@ -419,6 +400,11 @@ class SubjectManagementView(ttk.Frame):
         self.load_data()
 
     def _build_ui(self):
+        self._build_form()
+        self._build_buttons()
+        self._build_table()
+
+    def _build_form(self):
         form_frame = ttk.LabelFrame(self, text="Subject Details")
         form_frame.pack(fill="x", padx=10, pady=8)
 
@@ -437,7 +423,7 @@ class SubjectManagementView(ttk.Frame):
             self.entries[key] = entry
         self.entries["units"].insert(0, "3")
 
-        # buttons
+    def _build_buttons(self):
         btn_frame = ttk.Frame(self)
         btn_frame.pack(fill="x", padx=10, pady=4)
         ttk.Button(btn_frame, text="Add Subject", command=self.add_subject).pack(side="left", padx=4)
@@ -446,7 +432,7 @@ class SubjectManagementView(ttk.Frame):
         ttk.Button(btn_frame, text="Clear Form", command=self.clear_form).pack(side="left", padx=4)
         ttk.Button(btn_frame, text="Refresh", command=self.load_data).pack(side="left", padx=4)
 
-        # table
+    def _build_table(self):
         cols = ("id", "code", "name", "units", "description")
         self.tree = ttk.Treeview(self, columns=cols, show="headings", height=12)
         style_table(self.tree)

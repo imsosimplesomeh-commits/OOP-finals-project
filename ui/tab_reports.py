@@ -26,7 +26,15 @@ class ReportsTab(ttk.Frame):
         self.load_dropdowns()
 
     def _build_ui(self):
-        # 1. Report Selector & Filter Controls
+        self._build_filters()
+
+        self.nb_views = ttk.Notebook(self)
+        self.nb_views.pack(fill="both", expand=True, padx=10, pady=6)
+
+        self._build_document_view()
+        self._build_table_view()
+
+    def _build_filters(self):
         ctrl_frame = ttk.LabelFrame(self, text="Select Report Type & Scope")
         ctrl_frame.pack(fill="x", padx=10, pady=6)
 
@@ -53,11 +61,7 @@ class ReportsTab(ttk.Frame):
         ttk.Button(buttons, text="Export / Save to File", command=self.export_report).pack(side="left", padx=4)
         ttk.Button(buttons, text="Export PDF", command=self.export_pdf).pack(side="left", padx=4)
 
-        # 2. Notebook with Document View and Table View
-        self.nb_views = ttk.Notebook(self)
-        self.nb_views.pack(fill="both", expand=True, padx=10, pady=6)
-
-        # Tab A: Formatted Document View
+    def _build_document_view(self):
         self.doc_frame = ttk.Frame(self.nb_views)
         self.nb_views.add(self.doc_frame, text="Document View")
 
@@ -76,7 +80,7 @@ class ReportsTab(ttk.Frame):
         scroll_y.pack(side="right", fill="y")
         scroll_x.pack(side="bottom", fill="x")
 
-        # Tab B: Grid Table View
+    def _build_table_view(self):
         self.grid_frame = ttk.Frame(self.nb_views)
         self.nb_views.add(self.grid_frame, text="Data Table View")
 
@@ -107,18 +111,15 @@ class ReportsTab(ttk.Frame):
 
         if rtype in ["Class List", "Grade Sheet"]:
             self.lbl_filter.config(text="Class Offering:")
-            self.cb_filter["values"] = list(self.class_map.keys())
-            if self.class_map:
-                self.cb_filter.current(0)
-            else:
-                self.cb_filter.set("")
+            choices = self.class_map
         else:
             self.lbl_filter.config(text="Student:")
-            self.cb_filter["values"] = list(self.student_map.keys())
-            if self.student_map:
-                self.cb_filter.current(0)
-            else:
-                self.cb_filter.set("")
+            choices = self.student_map
+        self.cb_filter["values"] = list(choices.keys())
+        if choices:
+            self.cb_filter.current(0)
+        else:
+            self.cb_filter.set("")
 
     def generate_report(self):
         filter_val = self.cb_filter.get()
@@ -131,15 +132,15 @@ class ReportsTab(ttk.Frame):
             if rtype == "Class List":
                 offering_id = self.class_map.get(filter_val)
                 data = self.report_service.generate_class_list_report(offering_id)
-                self._display_report(data)
             elif rtype == "Grade Sheet":
                 offering_id = self.class_map.get(filter_val)
                 data = self.report_service.generate_grade_sheet_report(offering_id)
-                self._display_report(data)
             elif rtype == "Student Grade Report":
                 student_id = self.student_map.get(filter_val)
                 data = self.report_service.generate_student_grade_report(student_id)
-                self._display_report(data)
+            else:
+                return
+            self._display_report(data)
         except ValueError as error:
             messagebox.showwarning("Report", str(error))
         except Exception:

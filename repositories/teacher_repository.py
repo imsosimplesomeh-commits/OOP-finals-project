@@ -6,9 +6,6 @@ from repositories.base_repository import Repository
 
 
 class TeacherRepository(Repository):
-    def __init__(self, conn_func=get_connection):
-        self.conn_func = conn_func
-
     def _row_to_teacher(self, row):
         return Teacher(
             teacher_id=str(row[0]),
@@ -20,7 +17,7 @@ class TeacherRepository(Repository):
         )
 
     def find_by_id(self, teacher_id):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -35,7 +32,7 @@ class TeacherRepository(Repository):
             conn.close()
 
     def find_all(self):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -50,7 +47,7 @@ class TeacherRepository(Repository):
 
     def search(self, query):
         pattern = f"%{query.strip()}%"
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -67,7 +64,7 @@ class TeacherRepository(Repository):
             conn.close()
 
     def save(self, teacher):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute("SELECT teacher_id FROM teachers WHERE teacher_id = %s", (teacher.teacher_id,))
@@ -98,7 +95,7 @@ class TeacherRepository(Repository):
             conn.close()
 
     def delete_by_id(self, teacher_id):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute("DELETE FROM teachers WHERE teacher_id = %s", (teacher_id,))

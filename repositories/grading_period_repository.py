@@ -6,9 +6,6 @@ from repositories.base_repository import Repository
 
 
 class GradingPeriodRepository(Repository):
-    def __init__(self, conn_func=get_connection):
-        self.conn_func = conn_func
-
     def _row_to_period(self, row):
         return GradingPeriod(
             period_id=str(row[0]),
@@ -21,7 +18,7 @@ class GradingPeriodRepository(Repository):
         )
 
     def find_by_id(self, period_id):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -36,7 +33,7 @@ class GradingPeriodRepository(Repository):
             conn.close()
 
     def find_all(self):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -50,7 +47,7 @@ class GradingPeriodRepository(Repository):
             conn.close()
 
     def find_by_term(self, school_year, semester):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -65,7 +62,7 @@ class GradingPeriodRepository(Repository):
             conn.close()
 
     def save(self, period):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             if period.period_id:
@@ -95,7 +92,7 @@ class GradingPeriodRepository(Repository):
             conn.close()
 
     def delete_by_id(self, period_id):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute("DELETE FROM grading_periods WHERE period_id = %s", (period_id,))

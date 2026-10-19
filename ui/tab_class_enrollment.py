@@ -33,6 +33,16 @@ class ClassEnrollmentTab(ttk.Frame):
         self.refresh_all()
 
     def _build_ui(self):
+        self._build_scroll_area()
+        self._build_class_section()
+
+        bottom_frame = ttk.Frame(self.content)
+        bottom_frame.pack(fill="both", expand=True, padx=10, pady=5)
+
+        self._build_weight_section(bottom_frame)
+        self._build_enrollment_section(bottom_frame)
+
+    def _build_scroll_area(self):
         # keep the lower forms reachable on smaller screens
         self.canvas = tk.Canvas(self, background=PANEL, highlightthickness=0)
         scroll = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
@@ -44,10 +54,15 @@ class ClassEnrollmentTab(ttk.Frame):
         self.content.bind("<Configure>", self._update_scroll_region)
         self.canvas.bind("<Configure>", self._resize_content)
 
-        # 1. Class offerings form and table
+    def _build_class_section(self):
         top_frame = ttk.LabelFrame(self.content, text="1. Class Offerings")
         top_frame.pack(fill="x", padx=10, pady=5)
 
+        self._build_class_form(top_frame)
+        self._build_class_buttons(top_frame)
+        self._build_class_table(top_frame)
+
+    def _build_class_form(self, top_frame):
         form = ttk.Frame(top_frame)
         form.pack(fill="x", padx=5, pady=5)
 
@@ -85,6 +100,7 @@ class ClassEnrollmentTab(ttk.Frame):
         self.cb_semester.set("1st Semester")
         self.cb_semester.grid(row=2, column=3, padx=4, pady=3, sticky="w")
 
+    def _build_class_buttons(self, top_frame):
         btn_bar = ttk.Frame(top_frame)
         btn_bar.pack(fill="x", padx=5, pady=4)
         ttk.Button(btn_bar, text="Add Class", command=self.add_class).pack(side="left", padx=4)
@@ -93,7 +109,7 @@ class ClassEnrollmentTab(ttk.Frame):
         ttk.Button(btn_bar, text="Clear", command=self.clear_class_form).pack(side="left", padx=4)
         ttk.Button(btn_bar, text="Refresh All", command=self.refresh_all).pack(side="left", padx=4)
 
-        # classes table
+    def _build_class_table(self, top_frame):
         cols = ("id", "code", "subject", "teacher", "section", "schedule", "room", "term")
         self.tree_classes = ttk.Treeview(top_frame, columns=cols, show="headings", height=5)
         style_table(self.tree_classes)
@@ -117,14 +133,16 @@ class ClassEnrollmentTab(ttk.Frame):
         self.tree_classes.pack(fill="x", padx=5, pady=5)
         self.tree_classes.bind("<<TreeviewSelect>>", self.on_class_select)
 
-        # bottom split: weights & components on left, student enrollments on right
-        bottom_frame = ttk.Frame(self.content)
-        bottom_frame.pack(fill="both", expand=True, padx=10, pady=5)
-
-        # 2. Grading Weights & Components
+    def _build_weight_section(self, bottom_frame):
         left_frame = ttk.LabelFrame(bottom_frame, text="2. Grading Weights & Components (for selected class)")
         left_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
 
+        self._build_weight_form(left_frame)
+        self._build_period_form(left_frame)
+        self._build_component_form(left_frame)
+        self._build_component_table(left_frame)
+
+    def _build_weight_form(self, left_frame):
         w_ctrl = ttk.Frame(left_frame)
         w_ctrl.pack(fill="x", padx=5, pady=3)
         ttk.Label(w_ctrl, text="Period:").pack(side="left", padx=2)
@@ -137,6 +155,7 @@ class ClassEnrollmentTab(ttk.Frame):
         self.lbl_weight_total = ttk.Label(left_frame, text="No saved weights")
         self.lbl_weight_total.pack(anchor="w", padx=8, pady=2)
 
+    def _build_period_form(self, left_frame):
         period_box = ttk.LabelFrame(left_frame, text="Add Grading Period")
         period_box.pack(fill="x", padx=5, pady=3)
         ttk.Label(period_box, text="Name:").pack(side="left", padx=2)
@@ -147,7 +166,7 @@ class ClassEnrollmentTab(ttk.Frame):
         self.entry_period_order.pack(side="left", padx=2)
         ttk.Button(period_box, text="Add Period", command=self.add_period).pack(side="left", padx=3)
 
-        # add component box
+    def _build_component_form(self, left_frame):
         comp_box = ttk.LabelFrame(left_frame, text="Add Assessable Component")
         comp_box.pack(fill="x", padx=5, pady=5)
         c_row1 = ttk.Frame(comp_box)
@@ -172,6 +191,7 @@ class ClassEnrollmentTab(ttk.Frame):
         ttk.Button(c_row2, text="Add Component", command=self.add_component).pack(side="left", padx=4)
         ttk.Button(c_row2, text="Delete Selected", command=self.delete_component).pack(side="left", padx=4)
 
+    def _build_component_table(self, left_frame):
         comp_table = ttk.Frame(left_frame)
         comp_table.pack(fill="both", expand=True, padx=5, pady=3)
         cols_c = ("id", "period", "name", "type", "max_score")
@@ -192,7 +212,7 @@ class ClassEnrollmentTab(ttk.Frame):
         comp_scroll.pack(side="right", fill="y")
         self.tree_comps.pack(side="left", fill="both", expand=True)
 
-        # 3. Class Enrollment
+    def _build_enrollment_section(self, bottom_frame):
         right_frame = ttk.LabelFrame(bottom_frame, text="3. Student Enrollment (for selected class)")
         right_frame.pack(side="right", fill="both", expand=True, padx=(5, 0))
 
@@ -208,6 +228,9 @@ class ClassEnrollmentTab(ttk.Frame):
         ttk.Button(en_buttons, text="Restore", command=self.restore_student).grid(row=1, column=0, padx=3, pady=3, sticky="ew")
         ttk.Button(en_buttons, text="Remove", command=self.remove_enrollment).grid(row=1, column=1, padx=3, pady=3, sticky="ew")
 
+        self._build_enrollment_table(right_frame)
+
+    def _build_enrollment_table(self, right_frame):
         cols_e = ("id", "student_id", "student_name", "program", "enroll_date", "status")
         self.tree_enrollments = ttk.Treeview(right_frame, columns=cols_e, show="headings", height=10)
         style_table(self.tree_enrollments)

@@ -8,7 +8,7 @@ from psycopg2 import sql
 
 import db
 from models import (
-    Student, Teacher, Subject, ClassOffering, Enrollment, GradingPeriod,
+    Student, Teacher, Subject, ClassOffering,
     GradeComponent, GradeComponentScore,
 )
 from repositories import (

@@ -3,7 +3,7 @@
 # run:  python -m unittest tests.test_grade_numbers -v
 
 import unittest
-from services.grade_calculator_v2 import GradeCalculator as GC
+from services.grade_calculator import GradeCalculator as GC
 
 MID_MAX = [50, 100, 100]
 FIN_MAX = [50, 100, 100]

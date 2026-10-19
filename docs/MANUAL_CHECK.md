@@ -1,6 +1,6 @@
 # Manual demo checklist
 
-Source: [CSPC+103+Finals+Project+—+CRUD+Test+Case+Scenarios+(100+pts).docx](<C:/Users/0stef/Downloads/CSPC+103+Finals+Project+—+CRUD+Test+Case+Scenarios+(100+pts).docx>). Inputs and expected results come from its test cases, test data and Appendix.
+Source: CSPC 103 Finals Project - CRUD Test Case Scenarios (100 pts). Inputs and expected results come from its test cases, test data and Appendix.
 
 Use the empty demo database `Modelo_CSPC103`. Do not run `seed_data.py`. Leave email blank. Use Active for student and teacher status. Check both the screen and the saved database rows. Leave Pass/Fail blank until each manual case is performed.
 

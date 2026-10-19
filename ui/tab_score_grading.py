@@ -1,6 +1,5 @@
 # tab_score_grading.py - Tab for score entry and grade calculations
 
-import tkinter as tk
 from tkinter import ttk, messagebox
 
 from models import GradeComponentScore

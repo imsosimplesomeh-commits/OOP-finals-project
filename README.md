@@ -8,7 +8,7 @@ Notre Dame of Marbel University — CEAC
 
 ## Overview
 
-A desktop grading system built with Python, Tkinter, and PostgreSQL (`psycopg2`). It handles student records, class offerings, raw score entry, and automatic grade computation using the standard collegiate rating scale (1.00 to 5.00).
+A desktop grading system built with Python, Tkinter, and PostgreSQL (`psycopg2-binary`), with `reportlab` for PDF export. It handles student records, class offerings, raw score entry, and automatic grade computation using the standard collegiate rating scale (1.00 to 5.00).
 
 The project separates responsibilities cleanly:
 
@@ -32,7 +32,7 @@ The project separates responsibilities cleanly:
 1. Open **pgAdmin 4** and connect to your local PostgreSQL server (default port `5432`, user `postgres`).
 2. In the Object Explorer on the left, right-click **Databases** > **Create** > **Database...**.
 3. Name the database **`Modelo_CSPC103`** and click **Save**.
-4. *(Optional)* If your PostgreSQL password differs from the default in `db.py`, set environment variables:
+4. Set `PGPASSWORD` to your PostgreSQL password. You can also set the connection variables below; their default values are shown:
    * `PGHOST`: `localhost`
    * `PGPORT`: `5432`
    * `PGDATABASE`: `Modelo_CSPC103`
@@ -52,7 +52,7 @@ pip install -r requirements.txt
 ```bash
 python db.py
 ```
-*Creates all tables with `SERIAL PRIMARY KEY` and foreign key relationships in `Modelo_CSPC103`.*
+*Creates the 11 tables and their foreign key relationships in `Modelo_CSPC103`.*
 
 3. **Seed sample data (optional, skip this for the CRUD checklist):**
 ```bash
@@ -67,8 +67,9 @@ python main.py
 
 5. **Run automated test cases:**
 ```bash
-python test_system.py
+python -m unittest discover
 ```
+Database and GUI integration tests need `PGDATABASE_TEST` set to a separate test database. Without it, those tests are skipped.
 
 ---
 
@@ -77,7 +78,7 @@ python test_system.py
 * **Tab 1: Management** — Add, edit, search, and delete students, faculty, and academic subjects.
 * **Tab 2: Class Offerings & Enrollment** — Set up classes, assign teachers, configure component percentage weights (quizzes, labs, exams), and enroll students.
 * **Tab 3: Score Entry & Calculations** — Record component scores per student, compute weighted midterm and final grades, and calculate final ratings.
-* **Tab 4: Reports** — Generate printable class rosters, official grade sheets, and individual student grade summaries with text and table export.
+* **Tab 4: Reports** — Generate printable class rosters, official grade sheets, and individual student grade summaries with PDF export using `reportlab`.
 
 ## PDF reports and a clean test database
 
@@ -110,11 +111,15 @@ Normal Delete buttons still protect records that have dependents.
 
 ```
 finals-project-student_gui/
+├── .gitignore            # Python cache and local environment exclusions
+├── README.md             # Setup and usage instructions
 ├── db.py                 # PostgreSQL connection and table schemas
 ├── main.py               # Main application GUI entry point
-├── requirements.txt      # Python dependencies (psycopg2-binary)
+├── requirements.txt      # psycopg2-binary and reportlab
 ├── seed_data.py          # PostgreSQL sample data loader
-├── test_system.py        # Automated unit and integration tests
+├── docs/
+│   └── MANUAL_CHECK.md   # Manual demo checklist
+├── tests/                # Automated unit and integration tests
 ├── models/               # Domain classes
 ├── repositories/         # PostgreSQL repositories (parameterized SQL)
 ├── services/             # Calculation and report logic

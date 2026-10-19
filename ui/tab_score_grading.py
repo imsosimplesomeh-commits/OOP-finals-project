@@ -9,6 +9,7 @@ from services.score_service import ScoreService
 from services.class_service import ClassService
 from services.enrollment_service import EnrollmentService
 from services.configuration_service import ConfigurationService
+from ui.theme import style_table
 
 
 class ScoreGradingTab(ttk.Frame):
@@ -76,7 +77,7 @@ class ScoreGradingTab(ttk.Frame):
         self.cb_comp.bind("<<ComboboxSelected>>", self.on_comp_change)
 
         ttk.Label(f_entry, text="Max Score:").grid(row=2, column=0, padx=4, pady=3, sticky="e")
-        self.lbl_max_score = ttk.Label(f_entry, text="--", font=("Segoe UI", 9, "bold"))
+        self.lbl_max_score = ttk.Label(f_entry, text="--", font=("Consolas", 9, "bold"))
         self.lbl_max_score.grid(row=2, column=1, padx=4, pady=3, sticky="w")
 
         ttk.Label(f_entry, text="Raw Score:").grid(row=3, column=0, padx=4, pady=3, sticky="e")
@@ -94,10 +95,11 @@ class ScoreGradingTab(ttk.Frame):
         ttk.Button(btn_score_box, text="Clear", command=self.clear_score_form).pack(side="left", padx=4)
         ttk.Button(btn_score_box, text="Delete Score", command=self.delete_score).pack(side="left", padx=4)
 
-        ttk.Label(left_frame, text="Recorded Scores for Selected Student:", font=("Segoe UI", 9, "bold")).pack(anchor="w", padx=8, pady=(8, 2))
+        ttk.Label(left_frame, text="Recorded Scores for Selected Student:", font=("Consolas", 9, "bold")).pack(anchor="w", padx=8, pady=(8, 2))
 
         cols_s = ("score_id", "component_id", "comp_name", "type", "score", "max", "norm", "remarks")
         self.tree_student_scores = ttk.Treeview(left_frame, columns=cols_s, show="headings", height=8)
+        style_table(self.tree_student_scores)
         self.tree_student_scores.column("score_id", width=0, stretch=False)
         self.tree_student_scores.column("component_id", width=0, stretch=False)
         self.tree_student_scores.column("remarks", width=0, stretch=False)
@@ -121,6 +123,7 @@ class ScoreGradingTab(ttk.Frame):
 
         cols_g = ("enrollment_id", "student_name", "midterm", "finals", "final_grade", "rating", "remarks")
         self.tree_grades = ttk.Treeview(right_frame, columns=cols_g, show="headings", height=14)
+        style_table(self.tree_grades)
         self.tree_grades.heading("enrollment_id", text="Enrollment ID")
         self.tree_grades.heading("student_name", text="Student Name")
         self.tree_grades.heading("midterm", text="Midterm")
@@ -133,7 +136,7 @@ class ScoreGradingTab(ttk.Frame):
         self.tree_grades.column("student_name", width=160)
         self.tree_grades.column("midterm", width=75)
         self.tree_grades.column("finals", width=75)
-        self.tree_grades.column("final_grade", width=90)
+        self.tree_grades.column("final_grade", width=110)
         self.tree_grades.column("rating", width=65)
         self.tree_grades.column("remarks", width=85)
 
@@ -248,8 +251,8 @@ class ScoreGradingTab(ttk.Frame):
         if not self.selected_enrollment_id:
             return
 
-        for score, normalized in self.score_service.get_scores(self.selected_enrollment_id):
-            self.tree_student_scores.insert("", "end", values=(
+        for index, (score, normalized) in enumerate(self.score_service.get_scores(self.selected_enrollment_id)):
+            self.tree_student_scores.insert("", "end", tags=("even" if index % 2 == 0 else "odd",), values=(
                 score.score_id, score.component_id, score.component_name, score.component_type,
                 f"{score.score:.2f}", f"{score.max_score:.2f}", f"{normalized:.2f}%", score.remarks or "",
             ))
@@ -331,10 +334,11 @@ class ScoreGradingTab(ttk.Frame):
             grade = self.grading_service.generate_and_save_grade(
                 self.selected_enrollment_id, self.selected_offering_id, mid_w, fin_w
             )
+            finals_rating = self.grading_service.calculator.to_grade_point(grade.finals_grade)
             messagebox.showinfo(
                 "Grade Computed",
                 f"Midterm: {self.grade_text(grade.midterm_grade)}\n"
-                f"Finals: {self.grade_text(grade.finals_grade)}\n"
+                f"Finals: {self.grade_text(grade.finals_grade)} ({self.grade_text(finals_rating)})\n"
                 f"Overall Final Grade: {self.grade_text(grade.overall_grade)}\n"
                 f"Remarks: {grade.remarks}"
             )
@@ -381,7 +385,7 @@ class ScoreGradingTab(ttk.Frame):
         grades = self.grading_service.get_class_grades(self.selected_offering_id)
         grade_map = {g.enrollment_id: g for g in grades}
 
-        for en in enrollments:
+        for index, en in enumerate(enrollments):
             g = grade_map.get(en.enrollment_id)
             if g:
                 mid_txt = self.grade_text(g.midterm_grade)
@@ -392,7 +396,7 @@ class ScoreGradingTab(ttk.Frame):
             else:
                 mid_txt, fin_txt, ovr_txt, rating, rem = "Incomplete", "Incomplete", "Incomplete", "Incomplete", "Incomplete"
 
-            self.tree_grades.insert("", "end", values=(
+            self.tree_grades.insert("", "end", tags=("even" if index % 2 == 0 else "odd",), values=(
                 en.enrollment_id, en.student_name, mid_txt, fin_txt, ovr_txt, rating, rem
             ))
 

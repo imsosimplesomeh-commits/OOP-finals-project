@@ -8,6 +8,7 @@ from services.class_service import ClassService
 from services.student_service import StudentService
 from services import ReportService
 from ui.report_document import report_text, export_pdf
+from ui.theme import VOID, LINE, BRASS, PARCHMENT, style_table
 
 
 class ReportsTab(ttk.Frame):
@@ -46,9 +47,11 @@ class ReportsTab(ttk.Frame):
         self.cb_filter = ttk.Combobox(f1, width=32, state="readonly")
         self.cb_filter.pack(side="left", padx=4)
 
-        ttk.Button(f1, text="Generate Report", command=self.generate_report).pack(side="left", padx=8)
-        ttk.Button(f1, text="Export / Save to File", command=self.export_report).pack(side="left", padx=4)
-        ttk.Button(f1, text="Export PDF", command=self.export_pdf).pack(side="left", padx=4)
+        buttons = ttk.Frame(ctrl_frame)
+        buttons.pack(fill="x", padx=6, pady=(0, 4))
+        ttk.Button(buttons, text="Generate Report", command=self.generate_report).pack(side="left", padx=4)
+        ttk.Button(buttons, text="Export / Save to File", command=self.export_report).pack(side="left", padx=4)
+        ttk.Button(buttons, text="Export PDF", command=self.export_pdf).pack(side="left", padx=4)
 
         # 2. Notebook with Document View and Table View
         self.nb_views = ttk.Notebook(self)
@@ -58,7 +61,13 @@ class ReportsTab(ttk.Frame):
         self.doc_frame = ttk.Frame(self.nb_views)
         self.nb_views.add(self.doc_frame, text="Document View")
 
-        self.txt_preview = tk.Text(self.doc_frame, wrap="none", font=("Consolas", 10), bg="#fcfcfc")
+        self.txt_preview = tk.Text(
+            self.doc_frame, wrap="none", font=("Consolas", 10),
+            bg=VOID, fg=PARCHMENT, insertbackground=PARCHMENT,
+            selectbackground=BRASS, selectforeground=VOID,
+            relief="flat", borderwidth=0, padx=14, pady=12,
+            highlightthickness=1, highlightbackground=LINE, highlightcolor=BRASS,
+        )
         scroll_y = ttk.Scrollbar(self.doc_frame, orient="vertical", command=self.txt_preview.yview)
         scroll_x = ttk.Scrollbar(self.doc_frame, orient="horizontal", command=self.txt_preview.xview)
         self.txt_preview.configure(yscrollcommand=scroll_y.set, xscrollcommand=scroll_x.set)
@@ -72,6 +81,7 @@ class ReportsTab(ttk.Frame):
         self.nb_views.add(self.grid_frame, text="Data Table View")
 
         self.tree = ttk.Treeview(self.grid_frame, show="headings")
+        style_table(self.tree)
         t_scroll_y = ttk.Scrollbar(self.grid_frame, orient="vertical", command=self.tree.yview)
         t_scroll_x = ttk.Scrollbar(self.grid_frame, orient="horizontal", command=self.tree.xview)
         self.tree.configure(yscrollcommand=t_scroll_y.set, xscrollcommand=t_scroll_x.set)
@@ -141,8 +151,8 @@ class ReportsTab(ttk.Frame):
         self.txt_preview.insert("1.0", report_text(data))
         cols = [str(i) for i in range(len(data["columns"]))]
         self._setup_tree(cols, data["columns"])
-        for row in data["rows"]:
-            self.tree.insert("", "end", values=row)
+        for index, row in enumerate(data["rows"]):
+            self.tree.insert("", "end", tags=("even" if index % 2 == 0 else "odd",), values=row)
 
     def export_pdf(self):
         if not self.current_report_data:

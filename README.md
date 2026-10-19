@@ -54,7 +54,7 @@ python db.py
 ```
 *Creates all tables with `SERIAL PRIMARY KEY` and foreign key relationships in `Modelo_CSPC103`.*
 
-3. **Seed sample data:**
+3. **Seed sample data (optional, skip this for the CRUD checklist):**
 ```bash
 python seed_data.py
 ```
@@ -78,6 +78,16 @@ python test_system.py
 * **Tab 2: Class Offerings & Enrollment** — Set up classes, assign teachers, configure component percentage weights (quizzes, labs, exams), and enroll students.
 * **Tab 3: Score Entry & Calculations** — Record component scores per student, compute weighted midterm and final grades, and calculate final ratings.
 * **Tab 4: Reports** — Generate printable class rosters, official grade sheets, and individual student grade summaries with text and table export.
+
+## PDF reports and a clean test database
+
+In Reports, choose Class List, Grade Sheet, or Student Grade Report. Choose the class or student,
+click Generate Report, then Export PDF. Choose where to save the file. Open the PDF to print it.
+
+Use Reset Database at the bottom right before starting the CRUD checklist. Read the database name
+in the confirmation, then choose Yes. This permanently clears all 11 project tables, including the
+audit log, and restarts generated IDs. No is selected by default. The forms reload empty after a reset.
+Normal Delete buttons still protect records that have dependents.
 
 ---
 

@@ -170,6 +170,25 @@ def init_db():
         conn.close()
 
 
+def reset_database():
+    # one transaction clears related tables without dropping the schema
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                TRUNCATE TABLE grade_component_scores, grades, grade_percentages,
+                    enrollments, grade_components, grading_periods, class_offerings,
+                    students, teachers, subjects, audit_log
+                RESTART IDENTITY
+            """)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
 if __name__ == "__main__":
     init_db()
     print("PostgreSQL database initialized successfully.")

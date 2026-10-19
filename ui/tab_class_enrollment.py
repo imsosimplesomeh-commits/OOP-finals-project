@@ -10,6 +10,7 @@ from services.teacher_service import TeacherService
 from services.subject_service import SubjectService
 from services.configuration_service import ConfigurationService
 from services.enrollment_service import EnrollmentService
+from ui.theme import PANEL, style_table
 
 
 class ClassEnrollmentTab(ttk.Frame):
@@ -32,8 +33,19 @@ class ClassEnrollmentTab(ttk.Frame):
         self.refresh_all()
 
     def _build_ui(self):
+        # keep the lower forms reachable on smaller screens
+        self.canvas = tk.Canvas(self, background=PANEL, highlightthickness=0)
+        scroll = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.canvas.configure(yscrollcommand=scroll.set)
+        scroll.pack(side="right", fill="y")
+        self.canvas.pack(side="left", fill="both", expand=True)
+        self.content = ttk.Frame(self.canvas)
+        self.content_window = self.canvas.create_window((0, 0), window=self.content, anchor="nw")
+        self.content.bind("<Configure>", self._update_scroll_region)
+        self.canvas.bind("<Configure>", self._resize_content)
+
         # 1. Class offerings form and table
-        top_frame = ttk.LabelFrame(self, text="1. Class Offerings")
+        top_frame = ttk.LabelFrame(self.content, text="1. Class Offerings")
         top_frame.pack(fill="x", padx=10, pady=5)
 
         form = ttk.Frame(top_frame)
@@ -84,6 +96,7 @@ class ClassEnrollmentTab(ttk.Frame):
         # classes table
         cols = ("id", "code", "subject", "teacher", "section", "schedule", "room", "term")
         self.tree_classes = ttk.Treeview(top_frame, columns=cols, show="headings", height=5)
+        style_table(self.tree_classes)
         self.tree_classes.heading("id", text="ID")
         self.tree_classes.heading("code", text="Class Code")
         self.tree_classes.heading("subject", text="Subject")
@@ -105,7 +118,7 @@ class ClassEnrollmentTab(ttk.Frame):
         self.tree_classes.bind("<<TreeviewSelect>>", self.on_class_select)
 
         # bottom split: weights & components on left, student enrollments on right
-        bottom_frame = ttk.Frame(self)
+        bottom_frame = ttk.Frame(self.content)
         bottom_frame.pack(fill="both", expand=True, padx=10, pady=5)
 
         # 2. Grading Weights & Components
@@ -159,8 +172,11 @@ class ClassEnrollmentTab(ttk.Frame):
         ttk.Button(c_row2, text="Add Component", command=self.add_component).pack(side="left", padx=4)
         ttk.Button(c_row2, text="Delete Selected", command=self.delete_component).pack(side="left", padx=4)
 
+        comp_table = ttk.Frame(left_frame)
+        comp_table.pack(fill="both", expand=True, padx=5, pady=3)
         cols_c = ("id", "period", "name", "type", "max_score")
-        self.tree_comps = ttk.Treeview(left_frame, columns=cols_c, show="headings", height=4)
+        self.tree_comps = ttk.Treeview(comp_table, columns=cols_c, show="headings", height=4)
+        style_table(self.tree_comps)
         self.tree_comps.heading("id", text="ID")
         self.tree_comps.heading("period", text="Period")
         self.tree_comps.heading("name", text="Component Name")
@@ -168,10 +184,13 @@ class ClassEnrollmentTab(ttk.Frame):
         self.tree_comps.heading("max_score", text="Max Score")
         self.tree_comps.column("id", width=0, stretch=False)
         self.tree_comps.column("period", width=70)
-        self.tree_comps.column("name", width=120)
+        self.tree_comps.column("name", width=210)
         self.tree_comps.column("type", width=80)
         self.tree_comps.column("max_score", width=70)
-        self.tree_comps.pack(fill="both", expand=True, padx=5, pady=3)
+        comp_scroll = ttk.Scrollbar(comp_table, orient="vertical", command=self.tree_comps.yview)
+        self.tree_comps.configure(yscrollcommand=comp_scroll.set)
+        comp_scroll.pack(side="right", fill="y")
+        self.tree_comps.pack(side="left", fill="both", expand=True)
 
         # 3. Class Enrollment
         right_frame = ttk.LabelFrame(bottom_frame, text="3. Student Enrollment (for selected class)")
@@ -182,13 +201,16 @@ class ClassEnrollmentTab(ttk.Frame):
         ttk.Label(en_ctrl, text="Select Student:").pack(side="left", padx=3)
         self.cb_enroll_student = ttk.Combobox(en_ctrl, width=22)
         self.cb_enroll_student.pack(side="left", padx=3)
-        ttk.Button(en_ctrl, text="Enroll Student", command=self.enroll_student).pack(side="left", padx=3)
-        ttk.Button(en_ctrl, text="Drop Selected", command=self.drop_student).pack(side="left", padx=3)
-        ttk.Button(en_ctrl, text="Restore", command=self.restore_student).pack(side="left", padx=3)
-        ttk.Button(en_ctrl, text="Remove", command=self.remove_enrollment).pack(side="left", padx=3)
+        en_buttons = ttk.Frame(right_frame)
+        en_buttons.pack(fill="x", padx=5, pady=4)
+        ttk.Button(en_buttons, text="Enroll Student", command=self.enroll_student).grid(row=0, column=0, padx=3, pady=3)
+        ttk.Button(en_buttons, text="Drop Selected", command=self.drop_student).grid(row=0, column=1, padx=3, pady=3)
+        ttk.Button(en_buttons, text="Restore", command=self.restore_student).grid(row=1, column=0, padx=3, pady=3, sticky="ew")
+        ttk.Button(en_buttons, text="Remove", command=self.remove_enrollment).grid(row=1, column=1, padx=3, pady=3, sticky="ew")
 
         cols_e = ("id", "student_id", "student_name", "program", "enroll_date", "status")
         self.tree_enrollments = ttk.Treeview(right_frame, columns=cols_e, show="headings", height=10)
+        style_table(self.tree_enrollments)
         self.tree_enrollments.heading("id", text="ID")
         self.tree_enrollments.heading("student_id", text="Student ID")
         self.tree_enrollments.heading("student_name", text="Student Name")
@@ -203,6 +225,12 @@ class ClassEnrollmentTab(ttk.Frame):
         self.tree_enrollments.column("enroll_date", width=90)
         self.tree_enrollments.column("status", width=80)
         self.tree_enrollments.pack(fill="both", expand=True, padx=5, pady=4)
+
+    def _update_scroll_region(self, event):
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+    def _resize_content(self, event):
+        self.canvas.itemconfigure(self.content_window, width=event.width)
 
     def refresh_all(self):
         try:
@@ -242,8 +270,8 @@ class ClassEnrollmentTab(ttk.Frame):
         for r in self.tree_classes.get_children():
             self.tree_classes.delete(r)
         classes = self.class_service.find_all()
-        for c in classes:
-            self.tree_classes.insert("", "end", values=(
+        for index, c in enumerate(classes):
+            self.tree_classes.insert("", "end", tags=("even" if index % 2 == 0 else "odd",), values=(
                 c.class_id, c.class_code, c.subject_name or c.subject_code,
                 c.teacher_name, c.section or "", c.schedule or "", c.room or "",
                 f"{c.semester} {c.school_year}"
@@ -350,8 +378,8 @@ class ClassEnrollmentTab(ttk.Frame):
             for row in self.tree_comps.get_children():
                 self.tree_comps.delete(row)
             components = self.config_service.get_components()
-            for component in components:
-                self.tree_comps.insert("", "end", values=(
+            for index, component in enumerate(components):
+                self.tree_comps.insert("", "end", tags=("even" if index % 2 == 0 else "odd",), values=(
                     component.component_id, component.period_name, component.name,
                     component.type, component.max_score,
                 ))
@@ -441,8 +469,8 @@ class ClassEnrollmentTab(ttk.Frame):
             if not self.selected_offering_id:
                 return
             enrollments = self.enrollment_service.get_class_enrollments(self.selected_offering_id)
-            for e in enrollments:
-                self.tree_enrollments.insert("", "end", values=(
+            for index, e in enumerate(enrollments):
+                self.tree_enrollments.insert("", "end", tags=("even" if index % 2 == 0 else "odd",), values=(
                     e.enrollment_id, e.student_id, e.student_name,
                     e.student_program or "", str(e.enroll_date or ""), e.status
                 ))

@@ -8,6 +8,13 @@ def grade_text(value):
     return f"{value:.2f}" if value is not None else "Incomplete"
 
 
+def term_text(semester, school_year):
+    semester = str(semester)
+    if semester.lower() in ("1st", "2nd"):
+        semester += " Semester"
+    return f"Term: {semester}, SY {school_year}"
+
+
 class ReportService:
     def __init__(self, report_repo=None, student_repo=None):
         self.report_repo = report_repo or ReportRepository()
@@ -32,7 +39,7 @@ class ReportService:
             "header": [
                 f"Subject: {header['subject_code']} - {header['subject_name']}    Section: {header['section'] or 'N/A'}",
                 f"Teacher: {teacher}",
-                f"Term: {header['semester']} Semester, SY {header['school_year']}",
+                term_text(header['semester'], header['school_year']),
             ] + ([] if grade_sheet else [f"Schedule / Room: {header['schedule'] or 'N/A'}, {header['room'] or 'N/A'}"]),
             "columns": ["No.", "Student", "Course", "MG", "FG"] if grade_sheet else ["No.", "Student Name", "Course"],
             "rows": rows,
@@ -67,7 +74,7 @@ class ReportService:
             "title": "Student Grade",
             "header": [
                 f"Student Name: {student.full_name}    Course: {student.program}    Year: {year}{suffix}",
-                f"Term: {semester} Semester, SY {school_year}" if subjects else "Term: No enrolled subjects",
+                term_text(semester, school_year) if subjects else "Term: No enrolled subjects",
             ],
             "columns": ["No.", "Subject Code", "Description", "Teacher", "Units", "F Grade"],
             "rows": [[i, s["subject_code"], s["subject_name"], s["teacher_name"], s["units"], grade_text(s["final_equiv"])]

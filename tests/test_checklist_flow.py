@@ -521,9 +521,9 @@ class TestChecklistFlow(unittest.TestCase):
         self.assertEqual([s.student_id for s in self.student.search("O'Brien")], ["2026-0004"])
         self.assertEqual(self.snapshot(), before)
 
-    def test_checklist_in_order(self):
+    def checklist_cases(self):
         # postponed checks follow the dependency instructions in the checklist
-        cases = [
+        return [
             ("ST-01", self.case_st01), ("ST-02", self.case_st02), ("ST-03", self.case_st03),
             ("ST-04", self.case_st04), ("ST-05", self.case_st05), ("ST-06", self.case_st06),
             ("TE-01", self.case_te01), ("TE-02", self.case_te02), ("TE-03", self.case_te03),
@@ -544,7 +544,9 @@ class TestChecklistFlow(unittest.TestCase):
             ("RP-01", self.case_rp01), ("RP-02", self.case_rp02), ("RP-03", self.case_rp03),
             ("RP-04", self.case_rp04), ("PS-01", self.case_ps01), ("PS-02", self.case_ps02),
         ]
-        for case_id, action in cases:
+
+    def test_checklist_in_order(self):
+        for case_id, action in self.checklist_cases():
             with self.subTest(case_id=case_id, phase=action.__name__):
                 action()
         for table, expected in ROW_COUNTS.items():

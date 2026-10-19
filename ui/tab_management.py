@@ -7,6 +7,7 @@ from models import Student, Teacher, Subject
 from services.student_service import StudentService
 from services.teacher_service import TeacherService
 from services.subject_service import SubjectService
+from ui.theme import style_table
 
 
 class ManagementTab(ttk.Frame):
@@ -96,6 +97,7 @@ class StudentManagementView(ttk.Frame):
         # table
         cols = ("id", "first_name", "last_name", "email", "program", "status", "year_level")
         self.tree = ttk.Treeview(self, columns=cols, show="headings", height=12)
+        style_table(self.tree)
         self.tree.heading("id", text="ID")
         self.tree.heading("first_name", text="First Name")
         self.tree.heading("last_name", text="Last Name")
@@ -124,8 +126,8 @@ class StudentManagementView(ttk.Frame):
             self.tree.delete(row)
         try:
             students = self.service.find_all()
-            for s in students:
-                self.tree.insert("", "end", values=(
+            for index, s in enumerate(students):
+                self.tree.insert("", "end", tags=("even" if index % 2 == 0 else "odd",), values=(
                     s.student_id, s.first_name, s.last_name, s.email or "", s.program or "", s.status, s.year_level
                 ))
         except Exception:
@@ -140,8 +142,8 @@ class StudentManagementView(ttk.Frame):
             self.tree.delete(row)
         try:
             students = self.service.search(query)
-            for s in students:
-                self.tree.insert("", "end", values=(
+            for index, s in enumerate(students):
+                self.tree.insert("", "end", tags=("even" if index % 2 == 0 else "odd",), values=(
                     s.student_id, s.first_name, s.last_name, s.email or "", s.program or "", s.status, s.year_level
                 ))
         except Exception:
@@ -281,6 +283,7 @@ class TeacherManagementView(ttk.Frame):
         # table
         cols = ("id", "first_name", "last_name", "email", "department", "status")
         self.tree = ttk.Treeview(self, columns=cols, show="headings", height=12)
+        style_table(self.tree)
         self.tree.heading("id", text="ID")
         self.tree.heading("first_name", text="First Name")
         self.tree.heading("last_name", text="Last Name")
@@ -292,7 +295,7 @@ class TeacherManagementView(ttk.Frame):
         self.tree.column("first_name", width=140)
         self.tree.column("last_name", width=140)
         self.tree.column("email", width=180)
-        self.tree.column("department", width=140)
+        self.tree.column("department", width=280)
         self.tree.column("status", width=90)
 
         scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.tree.yview)
@@ -307,8 +310,8 @@ class TeacherManagementView(ttk.Frame):
             self.tree.delete(row)
         try:
             teachers = self.service.find_all()
-            for t in teachers:
-                self.tree.insert("", "end", values=(
+            for index, t in enumerate(teachers):
+                self.tree.insert("", "end", tags=("even" if index % 2 == 0 else "odd",), values=(
                     t.teacher_id, t.first_name, t.last_name, t.email or "", t.department or "", t.status
                 ))
         except Exception:
@@ -323,8 +326,8 @@ class TeacherManagementView(ttk.Frame):
             self.tree.delete(row)
         try:
             teachers = self.service.search(query)
-            for t in teachers:
-                self.tree.insert("", "end", values=(
+            for index, t in enumerate(teachers):
+                self.tree.insert("", "end", tags=("even" if index % 2 == 0 else "odd",), values=(
                     t.teacher_id, t.first_name, t.last_name, t.email or "", t.department or "", t.status
                 ))
         except Exception:
@@ -447,6 +450,7 @@ class SubjectManagementView(ttk.Frame):
         # table
         cols = ("id", "code", "name", "units", "description")
         self.tree = ttk.Treeview(self, columns=cols, show="headings", height=12)
+        style_table(self.tree)
         self.tree.heading("id", text="ID")
         self.tree.heading("code", text="Subject Code")
         self.tree.heading("name", text="Subject Name")
@@ -471,8 +475,8 @@ class SubjectManagementView(ttk.Frame):
             self.tree.delete(row)
         try:
             subjects = self.service.find_all()
-            for s in subjects:
-                self.tree.insert("", "end", values=(
+            for index, s in enumerate(subjects):
+                self.tree.insert("", "end", tags=("even" if index % 2 == 0 else "odd",), values=(
                     s.subject_id, s.subject_code, s.subject_name, s.units, s.description or ""
                 ))
         except Exception:

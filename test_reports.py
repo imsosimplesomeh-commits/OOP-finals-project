@@ -103,6 +103,20 @@ class TestReportEdges(unittest.TestCase):
         report = self.service.generate_student_grade_report("2026-0001", "2025-2026", "1st")
         self.assertIn("2025-2026", report_text(report))
 
+    def test_report_term_accepts_full_semester_names(self):
+        for semester, expected in [("1st", "1st Semester"), ("1st Semester", "1st Semester"),
+                                   ("2nd Semester", "2nd Semester"), ("Summer", "Summer")]:
+            self.repo.find_student_subjects.return_value = [dict(self.subjects[0], semester=semester)]
+            report = self.service.generate_student_grade_report("2026-0001")
+            self.assertIn(f"Term: {expected}, SY 2026-2027", report["header"])
+            self.repo.find_class_header.return_value = dict(
+                class_code="A", subject_code="CSPC 103", subject_name="OOP", section="A",
+                teacher_name="Maria Santos", department="IT", school_year="2026-2027",
+                semester=semester, schedule="MWF", room="CS-202")
+            self.repo.find_class_students.return_value = []
+            for generate in (self.service.generate_class_list_report, self.service.generate_grade_sheet_report):
+                self.assertIn(f"Term: {expected}, SY 2026-2027", generate(1)["header"])
+
     def test_pdf_exports_all_layouts_and_multiple_pages(self):
         self.repo.find_student_subjects.return_value = self.subjects
         student = self.service.generate_student_grade_report("2026-0001")

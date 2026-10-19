@@ -16,9 +16,9 @@ def term_text(semester, school_year):
 
 
 class ReportService:
-    def __init__(self, report_repo=None, student_repo=None):
-        self.report_repo = report_repo or ReportRepository()
-        self.student_repo = student_repo or StudentRepository()
+    def __init__(self):
+        self.report_repo = ReportRepository()
+        self.student_repo = StudentRepository()
 
     def _class_report(self, class_id, grade_sheet=False):
         header = self.report_repo.find_class_header(class_id)

@@ -1,6 +1,7 @@
 # grading_service.py - service handling grade computations and persistence
 
 from datetime import date
+from db import get_connection
 from models import Grade
 from repositories.enrollment_repository import EnrollmentRepository
 from repositories.grade_component_repository import GradeComponentRepository
@@ -13,21 +14,13 @@ from services.validation import number
 
 
 class GradingService:
-    def __init__(
-        self,
-        enrollment_repo=None,
-        percentage_repo=None,
-        component_repo=None,
-        score_repo=None,
-        grade_repo=None,
-        period_repo=None,
-    ):
-        self.enrollment_repo = enrollment_repo or EnrollmentRepository()
-        self.percentage_repo = percentage_repo or GradePercentageRepository()
-        self.component_repo = component_repo or GradeComponentRepository()
-        self.score_repo = score_repo or ScoreRepository()
-        self.grade_repo = grade_repo or GradeRepository()
-        self.period_repo = period_repo or GradingPeriodRepository()
+    def __init__(self):
+        self.enrollment_repo = EnrollmentRepository()
+        self.percentage_repo = GradePercentageRepository()
+        self.component_repo = GradeComponentRepository()
+        self.score_repo = ScoreRepository()
+        self.grade_repo = GradeRepository()
+        self.period_repo = GradingPeriodRepository()
         self.calculator = GradeCalculator()
 
     def get_class_percentage_weights(self, offering_id):
@@ -100,7 +93,7 @@ class GradingService:
 
     def bulk_compute_class_grades(self, offering_id, midterm_weight=40.0, finals_weight=60.0, changed_by=None):
         enrollments = self.enrollment_repo.find_by_offering(offering_id)
-        conn = self.grade_repo.conn_func()
+        conn = get_connection()
         try:
             saved_grades = []
             for enrollment in enrollments:

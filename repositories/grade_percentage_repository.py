@@ -7,9 +7,8 @@ from repositories.audit_repository import AuditRepository
 
 
 class GradePercentageRepository(Repository):
-    def __init__(self, conn_func=get_connection, audit_repo=None):
-        self.conn_func = conn_func
-        self.audit = audit_repo or AuditRepository(conn_func)
+    def __init__(self):
+        self.audit = AuditRepository()
 
     def _row_to_percentage(self, row):
         return GradePercentage(
@@ -20,7 +19,7 @@ class GradePercentageRepository(Repository):
         )
 
     def find_by_id(self, percentage_id):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -35,7 +34,7 @@ class GradePercentageRepository(Repository):
             conn.close()
 
     def find_all(self):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -49,7 +48,7 @@ class GradePercentageRepository(Repository):
             conn.close()
 
     def find_by_offering(self, class_id):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -64,7 +63,7 @@ class GradePercentageRepository(Repository):
             conn.close()
 
     def save(self, percentage, changed_by=None):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             with conn.cursor() as cur:
                 cur.execute("SELECT class_id FROM class_offerings WHERE class_id = %s FOR UPDATE", (percentage.class_id,))
@@ -102,7 +101,7 @@ class GradePercentageRepository(Repository):
             conn.close()
 
     def save_period(self, class_id, values, changed_by=None):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             with conn.cursor() as cur:
                 cur.execute("SELECT class_id FROM class_offerings WHERE class_id = %s FOR UPDATE", (class_id,))
@@ -133,7 +132,7 @@ class GradePercentageRepository(Repository):
             conn.close()
 
     def delete_by_id(self, percentage_id, changed_by=None):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             with conn.cursor() as cur:
                 cur.execute("SELECT class_id FROM grade_percentages WHERE percentage_id = %s", (percentage_id,))

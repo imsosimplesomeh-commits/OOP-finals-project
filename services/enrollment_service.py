@@ -10,13 +10,12 @@ from repositories.student_repository import StudentRepository
 
 
 class EnrollmentService:
-    def __init__(self, enrollment_repo=None, student_repo=None, class_repo=None,
-                 score_repo=None, grade_repo=None):
-        self.enrollment_repo = enrollment_repo or EnrollmentRepository()
-        self.student_repo = student_repo or StudentRepository()
-        self.class_repo = class_repo or ClassRepository()
-        self.scores = score_repo or ScoreRepository()
-        self.grades = grade_repo or GradeRepository()
+    def __init__(self):
+        self.enrollment_repo = EnrollmentRepository()
+        self.student_repo = StudentRepository()
+        self.class_repo = ClassRepository()
+        self.scores = ScoreRepository()
+        self.grades = GradeRepository()
 
     def enroll_student(self, student_id, offering_id, enroll_date=None):
         if not student_id or not str(student_id).strip():

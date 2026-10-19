@@ -6,9 +6,6 @@ from repositories.base_repository import Repository
 
 
 class GradeComponentRepository(Repository):
-    def __init__(self, conn_func=get_connection):
-        self.conn_func = conn_func
-
     def _row_to_component(self, row, detailed=False):
         gc = GradeComponent(
             component_id=str(row[0]),
@@ -25,7 +22,7 @@ class GradeComponentRepository(Repository):
         return gc
 
     def find_by_id(self, component_id):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -44,7 +41,7 @@ class GradeComponentRepository(Repository):
             conn.close()
 
     def find_all(self):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -62,7 +59,7 @@ class GradeComponentRepository(Repository):
             conn.close()
 
     def find_by_offering(self, offering_id):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -83,7 +80,7 @@ class GradeComponentRepository(Repository):
             conn.close()
 
     def find_by_offering_and_period(self, offering_id, period_id):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -104,7 +101,7 @@ class GradeComponentRepository(Repository):
             conn.close()
 
     def save(self, component):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             if component.component_id:
@@ -136,7 +133,7 @@ class GradeComponentRepository(Repository):
             conn.close()
 
     def delete_by_id(self, component_id):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute("DELETE FROM grade_components WHERE component_id = %s", (component_id,))

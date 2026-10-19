@@ -7,9 +7,8 @@ from repositories.audit_repository import AuditRepository
 
 
 class GradeRepository(Repository):
-    def __init__(self, conn_func=get_connection, audit_repo=None):
-        self.conn_func = conn_func
-        self.audit = audit_repo or AuditRepository(conn_func)
+    def __init__(self):
+        self.audit = AuditRepository()
 
     def _row_to_grade(self, row):
         return Grade(
@@ -25,7 +24,7 @@ class GradeRepository(Repository):
         )
 
     def find_by_id(self, grade_id):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -40,7 +39,7 @@ class GradeRepository(Repository):
             conn.close()
 
     def find_all(self):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -55,7 +54,7 @@ class GradeRepository(Repository):
 
     def find_by_enrollment(self, enrollment_id, connection=None):
         own_connection = connection is None
-        conn = self.conn_func() if own_connection else connection
+        conn = get_connection() if own_connection else connection
         try:
             cur = conn.cursor()
             cur.execute(
@@ -71,7 +70,7 @@ class GradeRepository(Repository):
                 conn.close()
 
     def find_by_offering(self, offering_id):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -89,7 +88,7 @@ class GradeRepository(Repository):
 
     def save(self, grade, changed_by=None, connection=None):
         own_connection = connection is None
-        conn = self.conn_func() if own_connection else connection
+        conn = get_connection() if own_connection else connection
         try:
             with conn.cursor() as cur:
                 cur.execute("SELECT enrollment_id FROM enrollments WHERE enrollment_id = %s FOR UPDATE",
@@ -129,7 +128,7 @@ class GradeRepository(Repository):
 
     def delete_by_id(self, grade_id, changed_by=None, connection=None):
         own_connection = connection is None
-        conn = self.conn_func() if own_connection else connection
+        conn = get_connection() if own_connection else connection
         try:
             with conn.cursor() as cur:
                 cur.execute("SELECT enrollment_id FROM grades WHERE grade_id = %s", (grade_id,))

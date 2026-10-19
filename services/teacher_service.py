@@ -3,9 +3,9 @@ from services.validation import required
 
 
 class TeacherService:
-    def __init__(self, teacher_repo=None, class_repo=None):
-        self.repo = teacher_repo or TeacherRepository()
-        self.classes = class_repo or ClassRepository()
+    def __init__(self):
+        self.repo = TeacherRepository()
+        self.classes = ClassRepository()
 
     def find_all(self):
         return self.repo.find_all()

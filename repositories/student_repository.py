@@ -6,9 +6,6 @@ from repositories.base_repository import Repository
 
 
 class StudentRepository(Repository):
-    def __init__(self, conn_func=get_connection):
-        self.conn_func = conn_func
-
     def _row_to_student(self, row):
         return Student(
             student_id=str(row[0]),
@@ -21,7 +18,7 @@ class StudentRepository(Repository):
         )
 
     def find_by_id(self, student_id):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -36,7 +33,7 @@ class StudentRepository(Repository):
             conn.close()
 
     def find_all(self):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -51,7 +48,7 @@ class StudentRepository(Repository):
 
     def search(self, query):
         pattern = f"%{query.strip()}%"
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -68,7 +65,7 @@ class StudentRepository(Repository):
             conn.close()
 
     def save(self, student):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute("SELECT student_id FROM students WHERE student_id = %s", (student.student_id,))
@@ -100,7 +97,7 @@ class StudentRepository(Repository):
             conn.close()
 
     def delete_by_id(self, student_id):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute("DELETE FROM students WHERE student_id = %s", (student_id,))

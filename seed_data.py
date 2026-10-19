@@ -9,7 +9,7 @@ from models import (
 from repositories import (
     StudentRepository, TeacherRepository, SubjectRepository, ClassRepository,
     GradingPeriodRepository, GradePercentageRepository, GradeComponentRepository,
-    EnrollmentRepository, ScoreRepository, GradeRepository
+    EnrollmentRepository, ScoreRepository
 )
 from services import GradingService
 
@@ -27,10 +27,7 @@ def seed_all():
     comp_repo = GradeComponentRepository()
     enroll_repo = EnrollmentRepository()
     score_repo = ScoreRepository()
-    grade_repo = GradeRepository()
-    grading_service = GradingService(
-        enroll_repo, perc_repo, comp_repo, score_repo, grade_repo, period_repo
-    )
+    grading_service = GradingService()
 
     # 1. Teachers
     teachers = teacher_repo.find_all()

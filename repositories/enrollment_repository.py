@@ -6,9 +6,6 @@ from repositories.base_repository import Repository
 
 
 class EnrollmentRepository(Repository):
-    def __init__(self, conn_func=get_connection):
-        self.conn_func = conn_func
-
     def _row_to_enrollment(self, row, detailed=False):
         e = Enrollment(
             enrollment_id=str(row[0]),
@@ -26,7 +23,7 @@ class EnrollmentRepository(Repository):
         return e
 
     def find_by_id(self, enrollment_id):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -47,7 +44,7 @@ class EnrollmentRepository(Repository):
             conn.close()
 
     def find_all(self):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -67,7 +64,7 @@ class EnrollmentRepository(Repository):
             conn.close()
 
     def find_by_offering(self, class_id):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -89,7 +86,7 @@ class EnrollmentRepository(Repository):
             conn.close()
 
     def find_by_student(self, student_id):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -111,7 +108,7 @@ class EnrollmentRepository(Repository):
             conn.close()
 
     def find_by_student_and_offering(self, student_id, class_id):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -126,7 +123,7 @@ class EnrollmentRepository(Repository):
             conn.close()
 
     def save(self, enrollment):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             if enrollment.enrollment_id:
@@ -157,7 +154,7 @@ class EnrollmentRepository(Repository):
             conn.close()
 
     def delete_by_id(self, enrollment_id):
-        conn = self.conn_func()
+        conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute("DELETE FROM enrollments WHERE enrollment_id = %s", (enrollment_id,))

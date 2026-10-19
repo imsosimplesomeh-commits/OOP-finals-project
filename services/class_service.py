@@ -4,13 +4,12 @@ from services.validation import required
 
 
 class ClassService:
-    def __init__(self, class_repo=None, subject_repo=None, teacher_repo=None,
-                 enrollment_repo=None, percentage_repo=None):
-        self.repo = class_repo or ClassRepository()
-        self.subjects = subject_repo or SubjectRepository()
-        self.teachers = teacher_repo or TeacherRepository()
-        self.enrollments = enrollment_repo or EnrollmentRepository()
-        self.weights = percentage_repo or GradePercentageRepository()
+    def __init__(self):
+        self.repo = ClassRepository()
+        self.subjects = SubjectRepository()
+        self.teachers = TeacherRepository()
+        self.enrollments = EnrollmentRepository()
+        self.weights = GradePercentageRepository()
 
     def find_all(self):
         return self.repo.find_all()

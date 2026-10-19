@@ -1,21 +1,19 @@
+from db import get_connection
 from repositories import ScoreRepository, EnrollmentRepository, GradeComponentRepository
-from repositories import GradePercentageRepository, GradeRepository, GradingPeriodRepository
+from repositories import GradePercentageRepository, GradeRepository
 from services.grade_calculator import GradeCalculator
 from services.grading_service import GradingService
 from services.validation import number
 
 
 class ScoreService:
-    def __init__(self, score_repo=None, enrollment_repo=None, component_repo=None,
-                 percentage_repo=None, grade_repo=None, period_repo=None):
-        self.scores = score_repo or ScoreRepository()
-        self.enrollments = enrollment_repo or EnrollmentRepository()
-        self.components = component_repo or GradeComponentRepository()
-        self.weights = percentage_repo or GradePercentageRepository()
-        self.grades = grade_repo or GradeRepository()
-        self.periods = period_repo or GradingPeriodRepository()
-        self.grading = GradingService(self.enrollments, self.weights, self.components,
-                                      self.scores, self.grades, self.periods)
+    def __init__(self):
+        self.scores = ScoreRepository()
+        self.enrollments = EnrollmentRepository()
+        self.components = GradeComponentRepository()
+        self.weights = GradePercentageRepository()
+        self.grades = GradeRepository()
+        self.grading = GradingService()
 
     def get_scores(self, enrollment_id):
         return [(score, GradeCalculator.normalize_score(score.score, score.max_score))
@@ -33,7 +31,7 @@ class ScoreService:
             raise ValueError("That component is not configured for this class.")
         score.score = number(score.score, "Score")
         GradeCalculator.normalize_score(score.score, component.max_score)
-        conn = self.scores.conn_func()
+        conn = get_connection()
         try:
             saved = self.scores.save(score, changed_by=changed_by, connection=conn)
             self.refresh_grade(enrollment, changed_by=changed_by, connection=conn)
@@ -50,7 +48,7 @@ class ScoreService:
         if not score:
             raise ValueError("Score not found. Refresh the list.")
         enrollment = self.enrollments.find_by_id(score.enrollment_id)
-        conn = self.scores.conn_func()
+        conn = get_connection()
         try:
             self.scores.delete_by_id(score_id, changed_by=changed_by, connection=conn)
             self.refresh_grade(enrollment, changed_by=changed_by, connection=conn)

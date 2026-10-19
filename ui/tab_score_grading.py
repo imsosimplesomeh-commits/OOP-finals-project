@@ -32,7 +32,15 @@ class ScoreGradingTab(ttk.Frame):
         self.load_classes()
 
     def _build_ui(self):
-        # 1. Top filter bar
+        self._build_filters()
+
+        main_split = ttk.Frame(self)
+        main_split.pack(fill="both", expand=True, padx=10, pady=5)
+
+        self._build_score_section(main_split)
+        self._build_grade_table(main_split)
+
+    def _build_filters(self):
         top_bar = ttk.LabelFrame(self, text="Select Class & Weighting")
         top_bar.pack(fill="x", padx=10, pady=5)
 
@@ -54,14 +62,15 @@ class ScoreGradingTab(ttk.Frame):
         ttk.Button(top_bar, text="Bulk Calculate All", command=self.bulk_calculate_grades).pack(side="right", padx=10, pady=4)
         ttk.Button(top_bar, text="Refresh", command=self.refresh_all).pack(side="right", padx=4, pady=4)
 
-        # 2. Main split: score entry on left, class grade summary on right
-        main_split = ttk.Frame(self)
-        main_split.pack(fill="both", expand=True, padx=10, pady=5)
-
-        # Left: score entry form
+    def _build_score_section(self, main_split):
         left_frame = ttk.LabelFrame(main_split, text="Component Score Entry")
         left_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
 
+        self._build_score_form(left_frame)
+        self._build_score_buttons(left_frame)
+        self._build_score_table(left_frame)
+
+    def _build_score_form(self, left_frame):
         f_entry = ttk.Frame(left_frame)
         f_entry.pack(fill="x", padx=6, pady=4)
 
@@ -87,6 +96,7 @@ class ScoreGradingTab(ttk.Frame):
         self.entry_remarks = ttk.Entry(f_entry, width=28)
         self.entry_remarks.grid(row=4, column=1, padx=4, pady=3, sticky="w")
 
+    def _build_score_buttons(self, left_frame):
         btn_score_box = ttk.Frame(left_frame)
         btn_score_box.pack(fill="x", padx=6, pady=4)
         ttk.Button(btn_score_box, text="Save Score", command=self.save_score).pack(side="left", padx=4)
@@ -94,6 +104,7 @@ class ScoreGradingTab(ttk.Frame):
         ttk.Button(btn_score_box, text="Clear", command=self.clear_score_form).pack(side="left", padx=4)
         ttk.Button(btn_score_box, text="Delete Score", command=self.delete_score).pack(side="left", padx=4)
 
+    def _build_score_table(self, left_frame):
         ttk.Label(left_frame, text="Recorded Scores for Selected Student:", font=("Consolas", 9, "bold")).pack(anchor="w", padx=8, pady=(8, 2))
 
         cols_s = ("score_id", "component_id", "comp_name", "type", "score", "max", "norm", "remarks")
@@ -116,7 +127,7 @@ class ScoreGradingTab(ttk.Frame):
         self.tree_student_scores.pack(fill="both", expand=True, padx=6, pady=4)
         self.tree_student_scores.bind("<<TreeviewSelect>>", self.on_score_select)
 
-        # Right: consolidated class grades table
+    def _build_grade_table(self, main_split):
         right_frame = ttk.LabelFrame(main_split, text="Consolidated Class Grades")
         right_frame.pack(side="right", fill="both", expand=True, padx=(5, 0))
 
@@ -308,6 +319,10 @@ class ScoreGradingTab(ttk.Frame):
             messagebox.showerror("Database Error", "Could not delete the score. Refresh and try again.")
 
     def _get_weights(self):
+        valid, message = self.grading_service.validate_percentages(self.selected_offering_id)
+        if not valid:
+            messagebox.showwarning("Weight Configuration Error", message)
+            return None
         try:
             return self.grading_service.validate_overall_weights(
                 self.entry_mid_weight.get(), self.entry_fin_weight.get(),
@@ -322,10 +337,6 @@ class ScoreGradingTab(ttk.Frame):
             return
 
         try:
-            valid, msg = self.grading_service.validate_percentages(self.selected_offering_id)
-            if not valid:
-                messagebox.showwarning("Weight Configuration Error", msg)
-                return
             weights = self._get_weights()
             if weights is None:
                 return
@@ -353,10 +364,6 @@ class ScoreGradingTab(ttk.Frame):
             return
 
         try:
-            valid, msg = self.grading_service.validate_percentages(self.selected_offering_id)
-            if not valid:
-                messagebox.showwarning("Weight Configuration Error", msg)
-                return
             weights = self._get_weights()
             if weights is None:
                 return

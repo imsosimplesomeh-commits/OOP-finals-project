@@ -10,14 +10,13 @@ from psycopg2 import sql
 import db
 from models import (
     Student, Teacher, Subject, ClassOffering, Enrollment, GradingPeriod,
-    GradeComponent, GradePercentage, GradeComponentScore, Grade,
+    GradeComponent, GradePercentage, GradeComponentScore,
 )
 from repositories import (
     AuditRepository, StudentRepository, TeacherRepository, SubjectRepository, ClassRepository,
     EnrollmentRepository, GradingPeriodRepository, GradeComponentRepository,
     GradePercentageRepository, ScoreRepository, GradeRepository,
 )
-from services.grading_service import GradingService
 
 
 from services.score_service import ScoreService

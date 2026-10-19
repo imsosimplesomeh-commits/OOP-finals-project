@@ -10,7 +10,7 @@ from repositories.enrollment_repository import EnrollmentRepository
 from repositories.grade_repository import GradeRepository
 from repositories.report_repository import ReportRepository
 from services.report_service import ReportService
-import test_system
+from tests import test_system
 from ui.report_document import export_pdf, report_text
 
 

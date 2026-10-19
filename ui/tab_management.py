@@ -1,6 +1,5 @@
 # tab_management.py - Tab for managing Students, Teachers, and Subjects
 
-import tkinter as tk
 from tkinter import ttk, messagebox
 
 from models import Student, Teacher, Subject

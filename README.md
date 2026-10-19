@@ -65,12 +65,6 @@ python seed_data.py
 python main.py
 ```
 
-5. **Run automated test cases:**
-```bash
-python -m unittest discover
-```
-Database and GUI integration tests need `PGDATABASE_TEST` set to a separate test database. Without it, those tests are skipped.
-
 ---
 
 ## Features
@@ -119,7 +113,6 @@ finals-project-student_gui/
 ├── seed_data.py          # PostgreSQL sample data loader
 ├── docs/
 │   └── MANUAL_CHECK.md   # Manual demo checklist
-├── tests/                # Automated unit and integration tests
 ├── models/               # Domain classes
 ├── repositories/         # PostgreSQL repositories (parameterized SQL)
 ├── services/             # Calculation and report logic

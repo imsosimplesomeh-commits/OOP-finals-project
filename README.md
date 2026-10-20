@@ -1,4 +1,4 @@
-# Student Information and Grading System
+# The Registry: Student Information and Grading System
 
 Final project for CSPC 103 (Object Oriented Programming), Notre Dame of Marbel University.
 Made by Stefan Zuri F. Modelo, BSCS 2.
@@ -50,13 +50,13 @@ A desktop app made with Python, Tkinter, and PostgreSQL. It manages students, te
 
 | Grade | Range |
 | --- | --- |
-| 1.00 | 98 - 100 |
-| 1.25 | 95 - 97.9 |
-| 1.50 | 92 - 94.9 |
-| 1.75 | 89 - 91.9 |
-| 2.00 | 86 - 88.9 |
-| 2.25 | 83 - 85.9 |
-| 2.50 | 80 - 82.9 |
-| 2.75 | 77 - 79.9 |
-| 3.00 | 75 - 76.9 |
+| 1.00 | 97 - 100 |
+| 1.25 | 94 - 96.99 |
+| 1.50 | 91 - 93.99 |
+| 1.75 | 88 - 90.99 |
+| 2.00 | 85 - 87.99 |
+| 2.25 | 82 - 84.99 |
+| 2.50 | 79 - 81.99 |
+| 2.75 | 76 - 78.99 |
+| 3.00 | 75 - 75.99 |
 | 5.00 | below 75 (Failed) |

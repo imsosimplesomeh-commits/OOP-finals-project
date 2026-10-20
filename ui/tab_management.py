@@ -6,12 +6,13 @@ from models import Student, Teacher, Subject
 from services.student_service import StudentService
 from services.teacher_service import TeacherService
 from services.subject_service import SubjectService
-from ui.theme import style_table
+from ui.theme import style_table, compact_header, add_message_bar, show_message, form_panel
 
 
 class ManagementTab(ttk.Frame):
     def __init__(self, parent):
-        super().__init__(parent)
+        super().__init__(parent, style="Page.TFrame")
+        compact_header(self.winfo_toplevel())
         self.student_service = StudentService()
         self.teacher_service = TeacherService()
         self.subject_service = SubjectService()
@@ -20,7 +21,7 @@ class ManagementTab(ttk.Frame):
 
     def _build_subnotebook(self):
         self.sub_notebook = ttk.Notebook(self)
-        self.sub_notebook.pack(fill="both", expand=True, padx=5, pady=5)
+        self.sub_notebook.pack(fill="both", expand=True, padx=8, pady=8)
 
         self.student_view = StudentManagementView(self.sub_notebook, self.student_service)
         self.sub_notebook.add(self.student_view, text="Students")
@@ -42,10 +43,11 @@ class ManagementTab(ttk.Frame):
 # -------------------------------------------------------------
 class StudentManagementView(ttk.Frame):
     def __init__(self, parent, service):
-        super().__init__(parent)
+        super().__init__(parent, style="Page.TFrame")
         self.service = service
         self.selected_id = None
 
+        self.message_label = add_message_bar(self)
         self._build_ui()
         self.load_data()
 
@@ -55,8 +57,11 @@ class StudentManagementView(ttk.Frame):
         self._build_table()
 
     def _build_form(self):
-        form_frame = ttk.LabelFrame(self, text="Student Details")
-        form_frame.pack(fill="x", padx=10, pady=8)
+        form_frame = form_panel(self, text="Student Form")
+        form_frame.pack(fill="x", padx=8, pady=8)
+
+        form_frame.columnconfigure(1, weight=1, uniform="fields")
+        form_frame.columnconfigure(3, weight=1, uniform="fields")
 
         self.entries = {}
         fields = [
@@ -70,35 +75,63 @@ class StudentManagementView(ttk.Frame):
         ]
 
         for label_text, key, r, c in fields:
-            ttk.Label(form_frame, text=label_text + ":").grid(row=r, column=c, padx=6, pady=4, sticky="e")
+            ttk.Label(form_frame, text=label_text + ":").grid(row=r, column=c, padx=8, pady=8, sticky="w")
             if key == "status":
-                entry = ttk.Combobox(form_frame, values=["active", "inactive", "graduated", "leave"], width=28)
+                entry = ttk.Combobox(form_frame, values=["active", "inactive", "graduated", "leave"], width=20)
                 entry.set("active")
             else:
-                entry = ttk.Entry(form_frame, width=30)
-            entry.grid(row=r, column=c + 1, padx=6, pady=4, sticky="w")
+                entry = ttk.Entry(form_frame, width=20)
+            entry.grid(row=r, column=c + 1, padx=8, pady=8, sticky="ew")
             self.entries[key] = entry
 
-        search_frame = ttk.Frame(form_frame)
-        search_frame.grid(row=3, column=2, columnspan=2, padx=6, pady=4, sticky="w")
-        ttk.Label(search_frame, text="Search:").pack(side="left", padx=2)
-        self.search_entry = ttk.Entry(search_frame, width=20)
-        self.search_entry.pack(side="left", padx=4)
-        ttk.Button(search_frame, text="Find", command=self.search_data).pack(side="left", padx=2)
-        ttk.Button(search_frame, text="Reset", command=self.load_data).pack(side="left", padx=2)
-
     def _build_buttons(self):
-        btn_frame = ttk.Frame(self)
-        btn_frame.pack(fill="x", padx=10, pady=4)
-        ttk.Button(btn_frame, text="Add Student", command=self.add_student).pack(side="left", padx=4)
-        ttk.Button(btn_frame, text="Update Student", command=self.update_student).pack(side="left", padx=4)
-        ttk.Button(btn_frame, text="Delete Student", command=self.delete_student).pack(side="left", padx=4)
-        ttk.Button(btn_frame, text="Clear Form", command=self.clear_form).pack(side="left", padx=4)
-        ttk.Button(btn_frame, text="Refresh", command=self.load_data).pack(side="left", padx=4)
+        btn_frame = ttk.Frame(self, style="Page.TFrame")
+        btn_frame.pack(fill="x", padx=8, pady=(0, 8))
+        for column in range(5):
+            btn_frame.columnconfigure(column, weight=1, uniform="actions")
+        ttk.Button(
+            btn_frame, text="Add",
+            command=self.add_student
+        ).grid(row=0, column=0, padx=(0, 8), sticky="ew")
+        ttk.Button(
+            btn_frame, text="Update",
+            command=self.update_student
+        ).grid(row=0, column=1, padx=(0, 8), sticky="ew")
+        ttk.Button(
+            btn_frame, text="Delete", style="Delete.TButton",
+            command=self.delete_student
+        ).grid(row=0, column=2, padx=(0, 8), sticky="ew")
+        ttk.Button(
+            btn_frame, text="Clear",
+            command=self.clear_form
+        ).grid(row=0, column=3, padx=(0, 8), sticky="ew")
+        ttk.Button(
+            btn_frame, text="View",
+            command=self.load_data
+        ).grid(row=0, column=4, padx=(0, 8), sticky="ew")
 
     def _build_table(self):
+        list_header = ttk.Frame(self, style="Page.TFrame")
+        list_header.pack(fill="x", padx=8, pady=(8, 8))
+        ttk.Label(list_header, text="Student Records", style="Heading.TLabel").pack(side="left")
+        search_frame = ttk.Frame(list_header, style="Page.TFrame")
+        search_frame.pack(side="right")
+        ttk.Label(search_frame, text="Search:", style="Page.TLabel").pack(side="left", padx=8)
+        self.search_entry = ttk.Entry(search_frame, width=24)
+        self.search_entry.pack(side="left", padx=8)
+        ttk.Button(
+            search_frame, text="Search",
+            command=self.search_data
+        ).pack(side="left", padx=8)
+        ttk.Button(
+            search_frame, text="View All",
+            command=self.load_data
+        ).pack(side="left", padx=8)
+
+        table_frame = ttk.Frame(self, style="Page.TFrame")
+        table_frame.pack(fill="both", expand=True, padx=8, pady=(0, 8))
         cols = ("id", "first_name", "last_name", "email", "program", "status", "year_level")
-        self.tree = ttk.Treeview(self, columns=cols, show="headings", height=12)
+        self.tree = ttk.Treeview(table_frame, columns=cols, show="headings", height=12)
         style_table(self.tree)
         self.tree.heading("id", text="ID")
         self.tree.heading("first_name", text="First Name")
@@ -112,14 +145,14 @@ class StudentManagementView(ttk.Frame):
         self.tree.column("id", width=110)
         self.tree.column("first_name", width=140)
         self.tree.column("last_name", width=140)
-        self.tree.column("email", width=180)
+        self.tree.column("email", width=144, minwidth=96, stretch=False)
         self.tree.column("program", width=120)
         self.tree.column("status", width=90)
 
-        scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.tree.yview)
+        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=scrollbar.set)
-        self.tree.pack(side="left", fill="both", expand=True, padx=(10, 0), pady=8)
-        scrollbar.pack(side="right", fill="y", padx=(0, 10), pady=8)
+        self.tree.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
 
         self.tree.bind("<<TreeviewSelect>>", self.on_select)
 
@@ -133,7 +166,7 @@ class StudentManagementView(ttk.Frame):
                     s.student_id, s.first_name, s.last_name, s.email or "", s.program or "", s.status, s.year_level
                 ))
         except Exception:
-            messagebox.showerror("Error", "Could not load records. Check the database connection.")
+            show_message(self, messagebox.showerror, "Error", "Could not load records. Check the database connection.")
 
     def search_data(self):
         self.load_data(self.search_entry.get().strip())
@@ -166,7 +199,7 @@ class StudentManagementView(ttk.Frame):
 
     def save_form(self, updating):
         if updating and not self.selected_id:
-            messagebox.showwarning("No Selection", "Select a student to update.")
+            show_message(self, messagebox.showwarning, "No Selection", "Select a student to update.")
             return
         try:
             record = Student(
@@ -182,29 +215,29 @@ class StudentManagementView(ttk.Frame):
                 self.service.update(record, self.selected_id)
             else:
                 self.service.add(record)
-            messagebox.showinfo("Success", "Student saved.")
+            show_message(self, messagebox.showinfo, "Success", "Student saved.")
             self.clear_form()
             self.load_data()
         except ValueError as error:
-            messagebox.showwarning("Validation", str(error))
+            show_message(self, messagebox.showwarning, "Validation", str(error))
         except Exception:
-            messagebox.showerror("Database Error", "Could not save the student. Check the database connection.")
+            show_message(self, messagebox.showerror, "Database Error", "Could not save the student. Check the database connection.")
 
     def delete_student(self):
         if not self.selected_id:
-            messagebox.showwarning("No Selection", "Select a student to delete.")
+            show_message(self, messagebox.showwarning, "No Selection", "Select a student to delete.")
             return
         if not messagebox.askyesno("Confirm Delete", "Delete this student?"):
             return
         try:
             self.service.delete(self.selected_id)
-            messagebox.showinfo("Success", "Student deleted.")
+            show_message(self, messagebox.showinfo, "Success", "Student deleted.")
             self.clear_form()
             self.load_data()
         except ValueError as error:
-            messagebox.showwarning("Cannot Delete", str(error))
+            show_message(self, messagebox.showwarning, "Cannot Delete", str(error))
         except Exception:
-            messagebox.showerror("Database Error", "Could not delete the student. Refresh the list and try again.")
+            show_message(self, messagebox.showerror, "Database Error", "Could not delete the student. Refresh the list and try again.")
 
     def clear_form(self):
         for k in ["student_id", "first_name", "last_name", "email", "program", "year_level"]:
@@ -220,10 +253,11 @@ class StudentManagementView(ttk.Frame):
 # -------------------------------------------------------------
 class TeacherManagementView(ttk.Frame):
     def __init__(self, parent, service):
-        super().__init__(parent)
+        super().__init__(parent, style="Page.TFrame")
         self.service = service
         self.selected_id = None
 
+        self.message_label = add_message_bar(self)
         self._build_ui()
         self.load_data()
 
@@ -233,8 +267,11 @@ class TeacherManagementView(ttk.Frame):
         self._build_table()
 
     def _build_form(self):
-        form_frame = ttk.LabelFrame(self, text="Teacher Details")
-        form_frame.pack(fill="x", padx=10, pady=8)
+        form_frame = form_panel(self, text="Teacher Form")
+        form_frame.pack(fill="x", padx=8, pady=8)
+
+        form_frame.columnconfigure(1, weight=1, uniform="fields")
+        form_frame.columnconfigure(3, weight=1, uniform="fields")
 
         self.entries = {}
         fields = [
@@ -247,35 +284,63 @@ class TeacherManagementView(ttk.Frame):
         ]
 
         for label_text, key, r, c in fields:
-            ttk.Label(form_frame, text=label_text + ":").grid(row=r, column=c, padx=6, pady=4, sticky="e")
+            ttk.Label(form_frame, text=label_text + ":").grid(row=r, column=c, padx=8, pady=8, sticky="w")
             if key == "status":
-                entry = ttk.Combobox(form_frame, values=["active", "inactive", "on-leave"], width=28)
+                entry = ttk.Combobox(form_frame, values=["active", "inactive", "on-leave"], width=20)
                 entry.set("active")
             else:
-                entry = ttk.Entry(form_frame, width=30)
-            entry.grid(row=r, column=c + 1, padx=6, pady=4, sticky="w")
+                entry = ttk.Entry(form_frame, width=20)
+            entry.grid(row=r, column=c + 1, padx=8, pady=8, sticky="ew")
             self.entries[key] = entry
 
-        search_frame = ttk.Frame(form_frame)
-        search_frame.grid(row=3, column=2, columnspan=2, padx=6, pady=4, sticky="w")
-        ttk.Label(search_frame, text="Search:").pack(side="left", padx=2)
-        self.search_entry = ttk.Entry(search_frame, width=20)
-        self.search_entry.pack(side="left", padx=4)
-        ttk.Button(search_frame, text="Find", command=self.search_data).pack(side="left", padx=2)
-        ttk.Button(search_frame, text="Reset", command=self.load_data).pack(side="left", padx=2)
-
     def _build_buttons(self):
-        btn_frame = ttk.Frame(self)
-        btn_frame.pack(fill="x", padx=10, pady=4)
-        ttk.Button(btn_frame, text="Add Teacher", command=self.add_teacher).pack(side="left", padx=4)
-        ttk.Button(btn_frame, text="Update Teacher", command=self.update_teacher).pack(side="left", padx=4)
-        ttk.Button(btn_frame, text="Delete Teacher", command=self.delete_teacher).pack(side="left", padx=4)
-        ttk.Button(btn_frame, text="Clear Form", command=self.clear_form).pack(side="left", padx=4)
-        ttk.Button(btn_frame, text="Refresh", command=self.load_data).pack(side="left", padx=4)
+        btn_frame = ttk.Frame(self, style="Page.TFrame")
+        btn_frame.pack(fill="x", padx=8, pady=(0, 8))
+        for column in range(5):
+            btn_frame.columnconfigure(column, weight=1, uniform="actions")
+        ttk.Button(
+            btn_frame, text="Add",
+            command=self.add_teacher
+        ).grid(row=0, column=0, padx=(0, 8), sticky="ew")
+        ttk.Button(
+            btn_frame, text="Update",
+            command=self.update_teacher
+        ).grid(row=0, column=1, padx=(0, 8), sticky="ew")
+        ttk.Button(
+            btn_frame, text="Delete", style="Delete.TButton",
+            command=self.delete_teacher
+        ).grid(row=0, column=2, padx=(0, 8), sticky="ew")
+        ttk.Button(
+            btn_frame, text="Clear",
+            command=self.clear_form
+        ).grid(row=0, column=3, padx=(0, 8), sticky="ew")
+        ttk.Button(
+            btn_frame, text="View",
+            command=self.load_data
+        ).grid(row=0, column=4, padx=(0, 8), sticky="ew")
 
     def _build_table(self):
+        list_header = ttk.Frame(self, style="Page.TFrame")
+        list_header.pack(fill="x", padx=8, pady=(8, 8))
+        ttk.Label(list_header, text="Teacher Records", style="Heading.TLabel").pack(side="left")
+        search_frame = ttk.Frame(list_header, style="Page.TFrame")
+        search_frame.pack(side="right")
+        ttk.Label(search_frame, text="Search:", style="Page.TLabel").pack(side="left", padx=8)
+        self.search_entry = ttk.Entry(search_frame, width=24)
+        self.search_entry.pack(side="left", padx=8)
+        ttk.Button(
+            search_frame, text="Search",
+            command=self.search_data
+        ).pack(side="left", padx=8)
+        ttk.Button(
+            search_frame, text="View All",
+            command=self.load_data
+        ).pack(side="left", padx=8)
+
+        table_frame = ttk.Frame(self, style="Page.TFrame")
+        table_frame.pack(fill="both", expand=True, padx=8, pady=(0, 8))
         cols = ("id", "first_name", "last_name", "email", "department", "status")
-        self.tree = ttk.Treeview(self, columns=cols, show="headings", height=12)
+        self.tree = ttk.Treeview(table_frame, columns=cols, show="headings", height=12)
         style_table(self.tree)
         self.tree.heading("id", text="ID")
         self.tree.heading("first_name", text="First Name")
@@ -287,14 +352,14 @@ class TeacherManagementView(ttk.Frame):
         self.tree.column("id", width=110)
         self.tree.column("first_name", width=140)
         self.tree.column("last_name", width=140)
-        self.tree.column("email", width=180)
+        self.tree.column("email", width=144, minwidth=96, stretch=False)
         self.tree.column("department", width=280)
         self.tree.column("status", width=90)
 
-        scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.tree.yview)
+        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=scrollbar.set)
-        self.tree.pack(side="left", fill="both", expand=True, padx=(10, 0), pady=8)
-        scrollbar.pack(side="right", fill="y", padx=(0, 10), pady=8)
+        self.tree.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
 
         self.tree.bind("<<TreeviewSelect>>", self.on_select)
 
@@ -308,7 +373,7 @@ class TeacherManagementView(ttk.Frame):
                     t.teacher_id, t.first_name, t.last_name, t.email or "", t.department or "", t.status
                 ))
         except Exception:
-            messagebox.showerror("Error", "Could not load records. Check the database connection.")
+            show_message(self, messagebox.showerror, "Error", "Could not load records. Check the database connection.")
 
     def search_data(self):
         self.load_data(self.search_entry.get().strip())
@@ -339,7 +404,7 @@ class TeacherManagementView(ttk.Frame):
 
     def save_form(self, updating):
         if updating and not self.selected_id:
-            messagebox.showwarning("No Selection", "Select a teacher to update.")
+            show_message(self, messagebox.showwarning, "No Selection", "Select a teacher to update.")
             return
         try:
             record = Teacher(
@@ -354,29 +419,29 @@ class TeacherManagementView(ttk.Frame):
                 self.service.update(record, self.selected_id)
             else:
                 self.service.add(record)
-            messagebox.showinfo("Success", "Teacher saved.")
+            show_message(self, messagebox.showinfo, "Success", "Teacher saved.")
             self.clear_form()
             self.load_data()
         except ValueError as error:
-            messagebox.showwarning("Validation", str(error))
+            show_message(self, messagebox.showwarning, "Validation", str(error))
         except Exception:
-            messagebox.showerror("Database Error", "Could not save the teacher. Check the database connection.")
+            show_message(self, messagebox.showerror, "Database Error", "Could not save the teacher. Check the database connection.")
 
     def delete_teacher(self):
         if not self.selected_id:
-            messagebox.showwarning("No Selection", "Select a teacher to delete.")
+            show_message(self, messagebox.showwarning, "No Selection", "Select a teacher to delete.")
             return
         if not messagebox.askyesno("Confirm Delete", "Delete this teacher?"):
             return
         try:
             self.service.delete(self.selected_id)
-            messagebox.showinfo("Success", "Teacher deleted.")
+            show_message(self, messagebox.showinfo, "Success", "Teacher deleted.")
             self.clear_form()
             self.load_data()
         except ValueError as error:
-            messagebox.showwarning("Cannot Delete", str(error))
+            show_message(self, messagebox.showwarning, "Cannot Delete", str(error))
         except Exception:
-            messagebox.showerror("Database Error", "Could not delete the teacher. Refresh the list and try again.")
+            show_message(self, messagebox.showerror, "Database Error", "Could not delete the teacher. Refresh the list and try again.")
 
     def clear_form(self):
         for k in ["teacher_id", "first_name", "last_name", "email", "department"]:
@@ -392,10 +457,11 @@ class TeacherManagementView(ttk.Frame):
 # -------------------------------------------------------------
 class SubjectManagementView(ttk.Frame):
     def __init__(self, parent, service):
-        super().__init__(parent)
+        super().__init__(parent, style="Page.TFrame")
         self.service = service
         self.selected_id = None
 
+        self.message_label = add_message_bar(self)
         self._build_ui()
         self.load_data()
 
@@ -405,8 +471,11 @@ class SubjectManagementView(ttk.Frame):
         self._build_table()
 
     def _build_form(self):
-        form_frame = ttk.LabelFrame(self, text="Subject Details")
-        form_frame.pack(fill="x", padx=10, pady=8)
+        form_frame = form_panel(self, text="Subject Form")
+        form_frame.pack(fill="x", padx=8, pady=8)
+
+        form_frame.columnconfigure(1, weight=1, uniform="fields")
+        form_frame.columnconfigure(3, weight=1, uniform="fields")
 
         self.entries = {}
         fields = [
@@ -417,24 +486,46 @@ class SubjectManagementView(ttk.Frame):
         ]
 
         for label_text, key, r, c in fields:
-            ttk.Label(form_frame, text=label_text + ":").grid(row=r, column=c, padx=6, pady=4, sticky="e")
-            entry = ttk.Entry(form_frame, width=30)
-            entry.grid(row=r, column=c + 1, padx=6, pady=4, sticky="w")
+            ttk.Label(form_frame, text=label_text + ":").grid(row=r, column=c, padx=8, pady=8, sticky="w")
+            entry = ttk.Entry(form_frame, width=20)
+            entry.grid(row=r, column=c + 1, padx=8, pady=8, sticky="ew")
             self.entries[key] = entry
         self.entries["units"].insert(0, "3")
 
     def _build_buttons(self):
-        btn_frame = ttk.Frame(self)
-        btn_frame.pack(fill="x", padx=10, pady=4)
-        ttk.Button(btn_frame, text="Add Subject", command=self.add_subject).pack(side="left", padx=4)
-        ttk.Button(btn_frame, text="Update Subject", command=self.update_subject).pack(side="left", padx=4)
-        ttk.Button(btn_frame, text="Delete Subject", command=self.delete_subject).pack(side="left", padx=4)
-        ttk.Button(btn_frame, text="Clear Form", command=self.clear_form).pack(side="left", padx=4)
-        ttk.Button(btn_frame, text="Refresh", command=self.load_data).pack(side="left", padx=4)
+        btn_frame = ttk.Frame(self, style="Page.TFrame")
+        btn_frame.pack(fill="x", padx=8, pady=(0, 8))
+        for column in range(5):
+            btn_frame.columnconfigure(column, weight=1, uniform="actions")
+        ttk.Button(
+            btn_frame, text="Add",
+            command=self.add_subject
+        ).grid(row=0, column=0, padx=(0, 8), sticky="ew")
+        ttk.Button(
+            btn_frame, text="Update",
+            command=self.update_subject
+        ).grid(row=0, column=1, padx=(0, 8), sticky="ew")
+        ttk.Button(
+            btn_frame, text="Delete", style="Delete.TButton",
+            command=self.delete_subject
+        ).grid(row=0, column=2, padx=(0, 8), sticky="ew")
+        ttk.Button(
+            btn_frame, text="Clear",
+            command=self.clear_form
+        ).grid(row=0, column=3, padx=(0, 8), sticky="ew")
+        ttk.Button(
+            btn_frame, text="View",
+            command=self.load_data
+        ).grid(row=0, column=4, padx=(0, 8), sticky="ew")
 
     def _build_table(self):
+        list_header = ttk.Frame(self, style="Page.TFrame")
+        list_header.pack(fill="x", padx=8, pady=(8, 8))
+        ttk.Label(list_header, text="Subject Records", style="Heading.TLabel").pack(side="left")
+        table_frame = ttk.Frame(self, style="Page.TFrame")
+        table_frame.pack(fill="both", expand=True, padx=8, pady=(0, 8))
         cols = ("id", "code", "name", "units", "description")
-        self.tree = ttk.Treeview(self, columns=cols, show="headings", height=12)
+        self.tree = ttk.Treeview(table_frame, columns=cols, show="headings", height=12)
         style_table(self.tree)
         self.tree.heading("id", text="ID")
         self.tree.heading("code", text="Subject Code")
@@ -448,10 +539,10 @@ class SubjectManagementView(ttk.Frame):
         self.tree.column("units", width=70)
         self.tree.column("description", width=250)
 
-        scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.tree.yview)
+        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=scrollbar.set)
-        self.tree.pack(side="left", fill="both", expand=True, padx=(10, 0), pady=8)
-        scrollbar.pack(side="right", fill="y", padx=(0, 10), pady=8)
+        self.tree.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
 
         self.tree.bind("<<TreeviewSelect>>", self.on_select)
 
@@ -465,7 +556,7 @@ class SubjectManagementView(ttk.Frame):
                     s.subject_id, s.subject_code, s.subject_name, s.units, s.description or ""
                 ))
         except Exception:
-            messagebox.showerror("Error", "Could not load records. Check the database connection.")
+            show_message(self, messagebox.showerror, "Error", "Could not load records. Check the database connection.")
 
     def on_select(self, event):
         sel = self.tree.selection()
@@ -490,7 +581,7 @@ class SubjectManagementView(ttk.Frame):
 
     def save_form(self, updating):
         if updating and not self.selected_id:
-            messagebox.showwarning("No Selection", "Select a subject to update.")
+            show_message(self, messagebox.showwarning, "No Selection", "Select a subject to update.")
             return
         try:
             record = Subject(
@@ -501,29 +592,29 @@ class SubjectManagementView(ttk.Frame):
                 description=self.entries["description"].get()
             )
             self.service.save(record)
-            messagebox.showinfo("Success", "Subject saved.")
+            show_message(self, messagebox.showinfo, "Success", "Subject saved.")
             self.clear_form()
             self.load_data()
         except ValueError as error:
-            messagebox.showwarning("Validation", str(error))
+            show_message(self, messagebox.showwarning, "Validation", str(error))
         except Exception:
-            messagebox.showerror("Database Error", "Could not save the subject. Check the database connection.")
+            show_message(self, messagebox.showerror, "Database Error", "Could not save the subject. Check the database connection.")
 
     def delete_subject(self):
         if not self.selected_id:
-            messagebox.showwarning("No Selection", "Select a subject to delete.")
+            show_message(self, messagebox.showwarning, "No Selection", "Select a subject to delete.")
             return
         if not messagebox.askyesno("Confirm Delete", "Delete this subject?"):
             return
         try:
             self.service.delete(self.selected_id)
-            messagebox.showinfo("Success", "Subject deleted.")
+            show_message(self, messagebox.showinfo, "Success", "Subject deleted.")
             self.clear_form()
             self.load_data()
         except ValueError as error:
-            messagebox.showwarning("Cannot Delete", str(error))
+            show_message(self, messagebox.showwarning, "Cannot Delete", str(error))
         except Exception:
-            messagebox.showerror("Database Error", "Could not delete the subject. Refresh the list and try again.")
+            show_message(self, messagebox.showerror, "Database Error", "Could not delete the subject. Refresh the list and try again.")
 
     def clear_form(self):
         for k in ["subject_code", "subject_name", "description"]:

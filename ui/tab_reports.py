@@ -8,12 +8,12 @@ from services.class_service import ClassService
 from services.student_service import StudentService
 from services import ReportService
 from ui.report_document import report_text, export_pdf
-from ui.theme import VOID, LINE, BRASS, PARCHMENT, style_table
+from ui.theme import style_table, add_message_bar, show_message, form_panel
 
 
 class ReportsTab(ttk.Frame):
     def __init__(self, parent):
-        super().__init__(parent)
+        super().__init__(parent, style="Page.TFrame")
         self.class_service = ClassService()
         self.student_service = StudentService()
         self.report_service = ReportService()
@@ -26,63 +26,86 @@ class ReportsTab(ttk.Frame):
         self.load_dropdowns()
 
     def _build_ui(self):
+        self.message_label = add_message_bar(self)
         self._build_filters()
 
         self.nb_views = ttk.Notebook(self)
-        self.nb_views.pack(fill="both", expand=True, padx=10, pady=6)
+        self.nb_views.pack(fill="both", expand=True, padx=8, pady=8)
 
         self._build_document_view()
         self._build_table_view()
 
     def _build_filters(self):
-        ctrl_frame = ttk.LabelFrame(self, text="Select Report Type & Scope")
-        ctrl_frame.pack(fill="x", padx=10, pady=6)
+        ctrl_frame = form_panel(self, text="Reports")
+        ctrl_frame.pack(fill="x", padx=8, pady=8)
 
         f1 = ttk.Frame(ctrl_frame)
-        f1.pack(fill="x", padx=6, pady=4)
+        f1.pack(fill="x", padx=8, pady=8)
+        f1.columnconfigure(1, weight=1)
+        f1.columnconfigure(3, weight=2)
 
-        ttk.Label(f1, text="Report Type:").pack(side="left", padx=4)
+        ttk.Label(f1, text="Report Type:").grid(row=0, column=0, padx=8, sticky="w")
         self.cb_report_type = ttk.Combobox(
             f1, values=["Class List", "Grade Sheet", "Student Grade Report"],
             width=22, state="readonly"
         )
         self.cb_report_type.set("Class List")
-        self.cb_report_type.pack(side="left", padx=4)
+        self.cb_report_type.grid(row=0, column=1, padx=8, sticky="ew")
         self.cb_report_type.bind("<<ComboboxSelected>>", self.on_report_type_change)
 
         self.lbl_filter = ttk.Label(f1, text="Class Offering:")
-        self.lbl_filter.pack(side="left", padx=(15, 4))
+        self.lbl_filter.grid(row=0, column=2, padx=8, sticky="w")
         self.cb_filter = ttk.Combobox(f1, width=32, state="readonly")
-        self.cb_filter.pack(side="left", padx=4)
+        self.cb_filter.grid(row=0, column=3, padx=8, sticky="ew")
 
         buttons = ttk.Frame(ctrl_frame)
-        buttons.pack(fill="x", padx=6, pady=(0, 4))
-        ttk.Button(buttons, text="Generate Report", command=self.generate_report).pack(side="left", padx=4)
-        ttk.Button(buttons, text="Export / Save to File", command=self.export_report).pack(side="left", padx=4)
-        ttk.Button(buttons, text="Export PDF", command=self.export_pdf).pack(side="left", padx=4)
+        buttons.pack(fill="x", padx=8, pady=(0, 8))
+        for column in range(3):
+            buttons.columnconfigure(column, weight=1, uniform="actions")
+        ttk.Button(
+            buttons, text="View Report",
+            command=self.generate_report
+        ).grid(row=0, column=0, padx=(0, 8), sticky="ew")
+        ttk.Button(
+            buttons, text="Save Report",
+            command=self.export_report
+        ).grid(row=0, column=1, padx=(0, 8), sticky="ew")
+        ttk.Button(
+            buttons, text="Export PDF",
+            command=self.export_pdf
+        ).grid(row=0, column=2, padx=(0, 8), sticky="ew")
 
     def _build_document_view(self):
-        self.doc_frame = ttk.Frame(self.nb_views)
+        self.doc_frame = ttk.Frame(self.nb_views, style="Page.TFrame")
         self.nb_views.add(self.doc_frame, text="Document View")
 
+        # Text has no ttk equivalent; use the shared table colors.
+        style = ttk.Style(self)
         self.txt_preview = tk.Text(
             self.doc_frame, wrap="none", font=("Consolas", 10),
-            bg=VOID, fg=PARCHMENT, insertbackground=PARCHMENT,
-            selectbackground=BRASS, selectforeground=VOID,
+            bg=style.lookup("Treeview", "background"),
+            fg=style.lookup("Treeview", "foreground"),
+            insertbackground=style.lookup("Treeview", "foreground"),
+            selectbackground=style.lookup("Treeview", "background", ("selected",)),
+            selectforeground=style.lookup("Treeview", "foreground", ("selected",)),
             relief="flat", borderwidth=0, padx=14, pady=12,
-            highlightthickness=1, highlightbackground=LINE, highlightcolor=BRASS,
+            highlightthickness=0,
+            highlightbackground=style.lookup("TEntry", "bordercolor"),
+            highlightcolor=style.lookup("TEntry", "bordercolor", ("focus",)),
         )
         scroll_y = ttk.Scrollbar(self.doc_frame, orient="vertical", command=self.txt_preview.yview)
         scroll_x = ttk.Scrollbar(self.doc_frame, orient="horizontal", command=self.txt_preview.xview)
         self.txt_preview.configure(yscrollcommand=scroll_y.set, xscrollcommand=scroll_x.set)
 
-        self.txt_preview.pack(side="left", fill="both", expand=True)
-        scroll_y.pack(side="right", fill="y")
-        scroll_x.pack(side="bottom", fill="x")
+        self.doc_frame.rowconfigure(0, weight=1)
+        self.doc_frame.columnconfigure(0, weight=1)
+        self.txt_preview.grid(row=0, column=0, sticky="nsew")
+        scroll_y.grid(row=0, column=1, sticky="ns")
+        scroll_x.grid(row=1, column=0, sticky="ew")
 
     def _build_table_view(self):
-        self.grid_frame = ttk.Frame(self.nb_views)
-        self.nb_views.add(self.grid_frame, text="Data Table View")
+        self.grid_frame = ttk.Frame(self.nb_views, style="Page.TFrame")
+        self.nb_views.add(self.grid_frame, text="Table View")
 
         self.tree = ttk.Treeview(self.grid_frame, show="headings")
         style_table(self.tree)
@@ -90,9 +113,11 @@ class ReportsTab(ttk.Frame):
         t_scroll_x = ttk.Scrollbar(self.grid_frame, orient="horizontal", command=self.tree.xview)
         self.tree.configure(yscrollcommand=t_scroll_y.set, xscrollcommand=t_scroll_x.set)
 
-        self.tree.pack(side="left", fill="both", expand=True)
-        t_scroll_y.pack(side="right", fill="y")
-        t_scroll_x.pack(side="bottom", fill="x")
+        self.grid_frame.rowconfigure(0, weight=1)
+        self.grid_frame.columnconfigure(0, weight=1)
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        t_scroll_y.grid(row=0, column=1, sticky="ns")
+        t_scroll_x.grid(row=1, column=0, sticky="ew")
 
     def load_dropdowns(self):
         try:
@@ -104,7 +129,7 @@ class ReportsTab(ttk.Frame):
 
             self.on_report_type_change(None)
         except Exception:
-            messagebox.showerror("Database Error", "Could not load report choices. Check the database connection.")
+            show_message(self, messagebox.showerror, "Database Error", "Could not load report choices. Check the database connection.")
 
     def on_report_type_change(self, event):
         rtype = self.cb_report_type.get()
@@ -124,7 +149,7 @@ class ReportsTab(ttk.Frame):
     def generate_report(self):
         filter_val = self.cb_filter.get()
         if not filter_val:
-            messagebox.showwarning("Validation", "Please select a target class or student.")
+            show_message(self, messagebox.showwarning, "Validation", "Please select a target class or student.")
             return
 
         rtype = self.cb_report_type.get()
@@ -142,9 +167,9 @@ class ReportsTab(ttk.Frame):
                 return
             self._display_report(data)
         except ValueError as error:
-            messagebox.showwarning("Report", str(error))
+            show_message(self, messagebox.showwarning, "Report", str(error))
         except Exception:
-            messagebox.showerror("Report", "Could not generate the report. Check the database connection.")
+            show_message(self, messagebox.showerror, "Report", "Could not generate the report. Check the database connection.")
 
     def _display_report(self, data):
         self.current_report_data = data
@@ -154,10 +179,11 @@ class ReportsTab(ttk.Frame):
         self._setup_tree(cols, data["columns"])
         for index, row in enumerate(data["rows"]):
             self.tree.insert("", "end", tags=("even" if index % 2 == 0 else "odd",), values=row)
+        self.message_label.configure(text="Report ready.", style="Success.Message.TLabel")
 
     def export_pdf(self):
         if not self.current_report_data:
-            messagebox.showwarning("Empty", "Generate a report first.")
+            show_message(self, messagebox.showwarning, "Empty", "Generate a report first.")
             return
         path = filedialog.asksaveasfilename(
             defaultextension=".pdf", filetypes=[("PDF File", "*.pdf")],
@@ -167,11 +193,11 @@ class ReportsTab(ttk.Frame):
             return
         try:
             export_pdf(self.current_report_data, path)
-            messagebox.showinfo("Export Successful", f"Report saved to:\n{path}")
+            show_message(self, messagebox.showinfo, "Export Successful", f"Report saved to:\n{path}")
         except ImportError:
-            messagebox.showerror("Export PDF", "Install the dependencies with: python -m pip install -r requirements.txt")
+            show_message(self, messagebox.showerror, "Export PDF", "Install the dependencies with: python -m pip install -r requirements.txt")
         except Exception:
-            messagebox.showerror("Export PDF", "Could not save the PDF. Check the file location and close any open copy.")
+            show_message(self, messagebox.showerror, "Export PDF", "Could not save the PDF. Check the file location and close any open copy.")
 
     def _setup_tree(self, cols, headings):
         for r in self.tree.get_children():
@@ -184,7 +210,7 @@ class ReportsTab(ttk.Frame):
     def export_report(self):
         content = report_text(self.current_report_data) if self.current_report_data else ""
         if not content:
-            messagebox.showwarning("Empty", "Generate a report first.")
+            show_message(self, messagebox.showwarning, "Empty", "Generate a report first.")
             return
 
         file_path = filedialog.asksaveasfilename(
@@ -201,9 +227,9 @@ class ReportsTab(ttk.Frame):
             else:
                 with open(file_path, "w", encoding="utf-8") as f:
                     f.write(content)
-            messagebox.showinfo("Export Successful", f"Report saved to:\n{file_path}")
+            show_message(self, messagebox.showinfo, "Export Successful", f"Report saved to:\n{file_path}")
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to save file: {e}")
+            show_message(self, messagebox.showerror, "Error", f"Failed to save file: {e}")
 
     def _export_csv(self, file_path):
         data = self.current_report_data

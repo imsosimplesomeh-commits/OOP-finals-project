@@ -15,50 +15,57 @@ from ui.theme import apply_theme
 class StudentGradeManagementApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Student Information and Grading System - CSPC 103")
+        self.title("The Registry")
         self.geometry("1280x820")
         self.minsize(1180, 780)
 
         apply_theme(self)
 
-        # make sure tables exist
+        # Keep the footer consistent with the existing database check.
+        database_ready = True
         try:
             init_db()
         except Exception:
+            database_ready = False
             messagebox.showwarning(
                 "Database Warning",
                 "Could not initialize the database. Check PostgreSQL and your connection settings."
             )
 
-        # header title
-        header = ttk.Frame(self, padding=(18, 14), style="Header.TFrame")
-        header.pack(fill="x")
+        header = ttk.Frame(self, padding=(18, 12), style="Banner.TFrame")
+        header.pack(fill="x", padx=16, pady=(14, 8))
         ttk.Label(
             header,
-            text="Student Information and Grading System",
+            text="◆   T H E   R E G I S T R Y   ◆",
             style="Title.TLabel"
-        ).pack(side="left")
+        ).pack(pady=(3, 2))
         ttk.Label(
             header,
-            text="CSPC 103 Finals Project | NDMU CEAC",
+            text="Student Records and Grading · CSPC 103 · NDMU",
             style="Subtitle.TLabel"
-        ).pack(side="right", padx=10)
-        ttk.Separator(self, orient="horizontal").pack(fill="x", padx=12, pady=(0, 6))
+        ).pack()
+        ttk.Separator(self, orient="horizontal").pack(
+            fill="x", padx=32, pady=(0, 6)
+        )
 
         # reserve space before the notebook fills the window
-        status_bar = ttk.Frame(self, padding=(16, 6))
+        status_bar = ttk.Frame(self, padding=(16, 6), style="Page.TFrame")
         status_bar.pack(fill="x", side="bottom")
         self.lbl_status = ttk.Label(
             status_bar,
-            text="System Ready | PostgreSQL Database: Modelo_CSPC103",
-            style="Status.TLabel"
+            text=(f"Database ready | {DB_CONFIG['dbname']}" if database_ready
+                  else "Database unavailable | Check PostgreSQL and connection settings"),
+            style="Success.Status.TLabel" if database_ready else "Error.Status.TLabel"
         )
         self.lbl_status.pack(side="left")
-        ttk.Button(status_bar, text="Reset Database", command=self._reset_database).pack(side="right")
+        ttk.Button(status_bar, text="Reset Database",
+                   command=self._reset_database).pack(side="right")
+        ttk.Label(status_bar, text="CSPC 103 | NDMU CEAC",
+                  style="Status.TLabel").pack(side="right", padx=16)
 
-        # 4 main tabs using ttk.Notebook
-        self.notebook = ttk.Notebook(self)
-        self.notebook.pack(fill="both", expand=True, padx=12, pady=(0, 6))
+        # The notebook keeps the original page-change and refresh behavior.
+        self.notebook = ttk.Notebook(self, style="Sidebar.TNotebook")
+        self.notebook.pack(fill="both", expand=True, padx=16, pady=(0, 6))
         self._build_tabs()
 
     def _build_tabs(self):
@@ -66,16 +73,16 @@ class StudentGradeManagementApp(tk.Tk):
         for tab in self.notebook.winfo_children():
             tab.destroy()
         self.tab_mgmt = ManagementTab(self.notebook)
-        self.notebook.add(self.tab_mgmt, text="1. Management")
+        self.notebook.add(self.tab_mgmt, text="I  Records")
 
         self.tab_class = ClassEnrollmentTab(self.notebook)
-        self.notebook.add(self.tab_class, text="2. Classes & Enrollment")
+        self.notebook.add(self.tab_class, text="II  Classes")
 
         self.tab_grading = ScoreGradingTab(self.notebook)
-        self.notebook.add(self.tab_grading, text="3. Scores & Grades")
+        self.notebook.add(self.tab_grading, text="III  Grades")
 
         self.tab_reports = ReportsTab(self.notebook)
-        self.notebook.add(self.tab_reports, text="4. Reports")
+        self.notebook.add(self.tab_reports, text="IV  Reports")
 
         # reload dropdowns and tables whenever the user clicks another tab
         self.notebook.bind("<<NotebookTabChanged>>", self._on_tab_changed)

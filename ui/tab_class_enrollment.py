@@ -10,12 +10,12 @@ from services.teacher_service import TeacherService
 from services.subject_service import SubjectService
 from services.configuration_service import ConfigurationService
 from services.enrollment_service import EnrollmentService
-from ui.theme import PANEL, style_table
+from ui.theme import style_table, add_message_bar, show_message, form_panel
 
 
 class ClassEnrollmentTab(ttk.Frame):
     def __init__(self, parent):
-        super().__init__(parent)
+        super().__init__(parent, style="Page.TFrame")
         self.class_service = ClassService()
         self.student_service = StudentService()
         self.teacher_service = TeacherService()
@@ -33,81 +33,101 @@ class ClassEnrollmentTab(ttk.Frame):
         self.refresh_all()
 
     def _build_ui(self):
+        self.message_label = add_message_bar(self)
         self._build_scroll_area()
         self._build_class_section()
 
-        bottom_frame = ttk.Frame(self.content)
-        bottom_frame.pack(fill="both", expand=True, padx=10, pady=5)
+        bottom_frame = ttk.Frame(self.content, style="Page.TFrame")
+        bottom_frame.pack(fill="both", expand=True, padx=8, pady=8)
 
         self._build_weight_section(bottom_frame)
         self._build_enrollment_section(bottom_frame)
 
     def _build_scroll_area(self):
         # keep the lower forms reachable on smaller screens
-        self.canvas = tk.Canvas(self, background=PANEL, highlightthickness=0)
+        self.canvas = tk.Canvas(self, background=ttk.Style(self).lookup("Page.TFrame", "background"), highlightthickness=0)
         scroll = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
         self.canvas.configure(yscrollcommand=scroll.set)
         scroll.pack(side="right", fill="y")
         self.canvas.pack(side="left", fill="both", expand=True)
-        self.content = ttk.Frame(self.canvas)
+        self.content = ttk.Frame(self.canvas, style="Page.TFrame")
         self.content_window = self.canvas.create_window((0, 0), window=self.content, anchor="nw")
         self.content.bind("<Configure>", self._update_scroll_region)
         self.canvas.bind("<Configure>", self._resize_content)
 
     def _build_class_section(self):
-        top_frame = ttk.LabelFrame(self.content, text="1. Class Offerings")
-        top_frame.pack(fill="x", padx=10, pady=5)
+        top_frame = ttk.LabelFrame(self.content, text="Classes", style="Section.TLabelframe")
+        top_frame.pack(fill="x", padx=8, pady=8)
 
         self._build_class_form(top_frame)
         self._build_class_buttons(top_frame)
         self._build_class_table(top_frame)
 
     def _build_class_form(self, top_frame):
-        form = ttk.Frame(top_frame)
-        form.pack(fill="x", padx=5, pady=5)
+        form = form_panel(top_frame, text="Class Form")
+        form.pack(fill="x", padx=8, pady=8)
+        form.columnconfigure(1, weight=1, uniform="fields")
+        form.columnconfigure(3, weight=1, uniform="fields")
 
-        ttk.Label(form, text="Class Code:").grid(row=0, column=0, padx=4, pady=3, sticky="e")
+        ttk.Label(form, text="Class Code:").grid(row=0, column=0, padx=8, pady=(0, 8), sticky="w")
         self.entry_code = ttk.Entry(form, width=18)
-        self.entry_code.grid(row=0, column=1, padx=4, pady=3, sticky="w")
+        self.entry_code.grid(row=0, column=1, padx=8, pady=(0, 8), sticky="ew")
 
-        ttk.Label(form, text="Subject:").grid(row=0, column=2, padx=4, pady=3, sticky="e")
+        ttk.Label(form, text="Subject:").grid(row=0, column=2, padx=8, pady=(0, 8), sticky="w")
         self.cb_subject = ttk.Combobox(form, width=28, state="readonly")
-        self.cb_subject.grid(row=0, column=3, padx=4, pady=3, sticky="w")
+        self.cb_subject.grid(row=0, column=3, padx=8, pady=(0, 8), sticky="ew")
 
-        ttk.Label(form, text="Teacher:").grid(row=0, column=4, padx=4, pady=3, sticky="e")
+        ttk.Label(form, text="Teacher:").grid(row=1, column=0, padx=8, pady=(0, 8), sticky="w")
         self.cb_teacher = ttk.Combobox(form, width=24, state="readonly")
-        self.cb_teacher.grid(row=0, column=5, padx=4, pady=3, sticky="w")
+        self.cb_teacher.grid(row=1, column=1, padx=8, pady=(0, 8), sticky="ew")
 
-        ttk.Label(form, text="Section:").grid(row=1, column=0, padx=4, pady=3, sticky="e")
+        ttk.Label(form, text="Section:").grid(row=1, column=2, padx=8, pady=(0, 8), sticky="w")
         self.entry_section = ttk.Entry(form, width=18)
-        self.entry_section.grid(row=1, column=1, padx=4, pady=3, sticky="w")
+        self.entry_section.grid(row=1, column=3, padx=8, pady=(0, 8), sticky="ew")
 
-        ttk.Label(form, text="Schedule:").grid(row=1, column=2, padx=4, pady=3, sticky="e")
+        ttk.Label(form, text="Schedule:").grid(row=2, column=0, padx=8, pady=(0, 8), sticky="w")
         self.entry_schedule = ttk.Entry(form, width=28)
-        self.entry_schedule.grid(row=1, column=3, padx=4, pady=3, sticky="w")
+        self.entry_schedule.grid(row=2, column=1, padx=8, pady=(0, 8), sticky="ew")
 
-        ttk.Label(form, text="Room:").grid(row=1, column=4, padx=4, pady=3, sticky="e")
+        ttk.Label(form, text="Room:").grid(row=2, column=2, padx=8, pady=(0, 8), sticky="w")
         self.entry_room = ttk.Entry(form, width=24)
-        self.entry_room.grid(row=1, column=5, padx=4, pady=3, sticky="w")
+        self.entry_room.grid(row=2, column=3, padx=8, pady=(0, 8), sticky="ew")
 
-        ttk.Label(form, text="School Year:").grid(row=2, column=0, padx=4, pady=3, sticky="e")
+        ttk.Label(form, text="School Year:").grid(row=3, column=0, padx=8, pady=(0, 8), sticky="w")
         self.entry_sy = ttk.Entry(form, width=18)
         self.entry_sy.insert(0, "2026-2027")
-        self.entry_sy.grid(row=2, column=1, padx=4, pady=3, sticky="w")
+        self.entry_sy.grid(row=3, column=1, padx=8, pady=(0, 8), sticky="ew")
 
-        ttk.Label(form, text="Semester:").grid(row=2, column=2, padx=4, pady=3, sticky="e")
+        ttk.Label(form, text="Semester:").grid(row=3, column=2, padx=8, pady=(0, 8), sticky="w")
         self.cb_semester = ttk.Combobox(form, values=["1st Semester", "2nd Semester", "Summer"], width=26, state="readonly")
         self.cb_semester.set("1st Semester")
-        self.cb_semester.grid(row=2, column=3, padx=4, pady=3, sticky="w")
+        self.cb_semester.grid(row=3, column=3, padx=8, pady=(0, 8), sticky="ew")
 
     def _build_class_buttons(self, top_frame):
         btn_bar = ttk.Frame(top_frame)
-        btn_bar.pack(fill="x", padx=5, pady=4)
-        ttk.Button(btn_bar, text="Add Class", command=self.add_class).pack(side="left", padx=4)
-        ttk.Button(btn_bar, text="Update Class", command=self.update_class).pack(side="left", padx=4)
-        ttk.Button(btn_bar, text="Delete Class", command=self.delete_class).pack(side="left", padx=4)
-        ttk.Button(btn_bar, text="Clear", command=self.clear_class_form).pack(side="left", padx=4)
-        ttk.Button(btn_bar, text="Refresh All", command=self.refresh_all).pack(side="left", padx=4)
+        btn_bar.pack(fill="x", padx=8, pady=8)
+        for column in range(5):
+            btn_bar.columnconfigure(column, weight=1, uniform="actions")
+        ttk.Button(
+            btn_bar, text="Add Class",
+            command=self.add_class
+        ).grid(row=0, column=0, padx=(0, 8), sticky="ew")
+        ttk.Button(
+            btn_bar, text="Update Class",
+            command=self.update_class
+        ).grid(row=0, column=1, padx=(0, 8), sticky="ew")
+        ttk.Button(
+            btn_bar, text="Delete Class", style="Delete.TButton",
+            command=self.delete_class
+        ).grid(row=0, column=2, padx=(0, 8), sticky="ew")
+        ttk.Button(
+            btn_bar, text="Clear",
+            command=self.clear_class_form
+        ).grid(row=0, column=3, padx=(0, 8), sticky="ew")
+        ttk.Button(
+            btn_bar, text="Refresh All",
+            command=self.refresh_all
+        ).grid(row=0, column=4, padx=(0, 8), sticky="ew")
 
     def _build_class_table(self, top_frame):
         cols = ("id", "code", "subject", "teacher", "section", "schedule", "room", "term")
@@ -130,12 +150,12 @@ class ClassEnrollmentTab(ttk.Frame):
         self.tree_classes.column("schedule", width=130)
         self.tree_classes.column("room", width=90)
         self.tree_classes.column("term", width=130)
-        self.tree_classes.pack(fill="x", padx=5, pady=5)
+        self.tree_classes.pack(fill="x", padx=8, pady=8)
         self.tree_classes.bind("<<TreeviewSelect>>", self.on_class_select)
 
     def _build_weight_section(self, bottom_frame):
-        left_frame = ttk.LabelFrame(bottom_frame, text="2. Grading Weights & Components (for selected class)")
-        left_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
+        left_frame = ttk.LabelFrame(bottom_frame, text="Grading Weights and Components", style="Section.TLabelframe")
+        left_frame.pack(fill="x", padx=0, pady=(0, 8))
 
         self._build_weight_form(left_frame)
         self._build_period_form(left_frame)
@@ -144,56 +164,69 @@ class ClassEnrollmentTab(ttk.Frame):
 
     def _build_weight_form(self, left_frame):
         w_ctrl = ttk.Frame(left_frame)
-        w_ctrl.pack(fill="x", padx=5, pady=3)
-        ttk.Label(w_ctrl, text="Period:").pack(side="left", padx=2)
+        w_ctrl.pack(fill="x", padx=8, pady=8)
+        ttk.Label(w_ctrl, text="Period:").pack(side="left", padx=8)
         self.cb_weight_period = ttk.Combobox(w_ctrl, width=12, state="readonly")
-        self.cb_weight_period.pack(side="left", padx=2)
+        self.cb_weight_period.pack(side="left", padx=8)
         self.cb_weight_period.bind("<<ComboboxSelected>>", self.load_weights_and_components)
-        ttk.Button(w_ctrl, text="Save Period Weights", command=self.save_weight).pack(side="left", padx=3)
+        ttk.Button(
+            w_ctrl, text="Save Weights",
+            command=self.save_weight
+        ).pack(side="left", padx=8)
         self.weight_form = ttk.Frame(left_frame)
-        self.weight_form.pack(fill="x", padx=5, pady=3)
+        self.weight_form.pack(fill="x", padx=8, pady=8)
+        self.weight_form.columnconfigure(1, weight=1)
         self.lbl_weight_total = ttk.Label(left_frame, text="No saved weights")
-        self.lbl_weight_total.pack(anchor="w", padx=8, pady=2)
+        self.lbl_weight_total.pack(anchor="w", padx=8, pady=8)
 
     def _build_period_form(self, left_frame):
-        period_box = ttk.LabelFrame(left_frame, text="Add Grading Period")
-        period_box.pack(fill="x", padx=5, pady=3)
-        ttk.Label(period_box, text="Name:").pack(side="left", padx=2)
+        period_box = form_panel(left_frame, text="Grading Period")
+        period_box.pack(fill="x", padx=8, pady=8)
+        ttk.Label(period_box, text="Name:").pack(side="left", padx=8)
         self.entry_period_name = ttk.Entry(period_box, width=12)
-        self.entry_period_name.pack(side="left", padx=2)
-        ttk.Label(period_box, text="Order:").pack(side="left", padx=2)
+        self.entry_period_name.pack(side="left", padx=8)
+        ttk.Label(period_box, text="Order:").pack(side="left", padx=8)
         self.entry_period_order = ttk.Entry(period_box, width=4)
-        self.entry_period_order.pack(side="left", padx=2)
-        ttk.Button(period_box, text="Add Period", command=self.add_period).pack(side="left", padx=3)
+        self.entry_period_order.pack(side="left", padx=8)
+        ttk.Button(
+            period_box, text="Add Period",
+            command=self.add_period
+        ).pack(side="left", padx=8)
 
     def _build_component_form(self, left_frame):
-        comp_box = ttk.LabelFrame(left_frame, text="Add Assessable Component")
-        comp_box.pack(fill="x", padx=5, pady=5)
+        comp_box = form_panel(left_frame, text="Assessment Component")
+        comp_box.pack(fill="x", padx=8, pady=8)
         c_row1 = ttk.Frame(comp_box)
-        c_row1.pack(fill="x", padx=4, pady=2)
-        ttk.Label(c_row1, text="Period:").pack(side="left", padx=2)
+        c_row1.pack(fill="x", padx=8, pady=8)
+        ttk.Label(c_row1, text="Period:").pack(side="left", padx=8)
         self.cb_period = ttk.Combobox(c_row1, width=10, state="readonly")
-        self.cb_period.pack(side="left", padx=2)
-        ttk.Label(c_row1, text="Category:").pack(side="left", padx=2)
+        self.cb_period.pack(side="left", padx=8)
+        ttk.Label(c_row1, text="Category:").pack(side="left", padx=8)
         self.cb_comp_weight = ttk.Combobox(c_row1, values=["Quiz", "Laboratory", "Exam", "Project", "Assignment"], width=12, state="readonly")
         self.cb_comp_weight.set("Quiz")
-        self.cb_comp_weight.pack(side="left", padx=2)
+        self.cb_comp_weight.pack(side="left", padx=8)
 
         c_row2 = ttk.Frame(comp_box)
-        c_row2.pack(fill="x", padx=4, pady=2)
-        ttk.Label(c_row2, text="Name:").pack(side="left", padx=2)
+        c_row2.pack(fill="x", padx=8, pady=8)
+        ttk.Label(c_row2, text="Name:").pack(side="left", padx=8)
         self.entry_comp_name = ttk.Entry(c_row2, width=14)
-        self.entry_comp_name.pack(side="left", padx=2)
-        ttk.Label(c_row2, text="Max Score:").pack(side="left", padx=2)
+        self.entry_comp_name.pack(side="left", padx=8)
+        ttk.Label(c_row2, text="Max Score:").pack(side="left", padx=8)
         self.entry_comp_max = ttk.Entry(c_row2, width=6)
         self.entry_comp_max.insert(0, "100")
-        self.entry_comp_max.pack(side="left", padx=2)
-        ttk.Button(c_row2, text="Add Component", command=self.add_component).pack(side="left", padx=4)
-        ttk.Button(c_row2, text="Delete Selected", command=self.delete_component).pack(side="left", padx=4)
+        self.entry_comp_max.pack(side="left", padx=8)
+        ttk.Button(
+            c_row2, text="Add Component",
+            command=self.add_component
+        ).pack(side="left", padx=8)
+        ttk.Button(
+            c_row2, text="Delete Component", style="Delete.TButton",
+            command=self.delete_component
+        ).pack(side="left", padx=8)
 
     def _build_component_table(self, left_frame):
         comp_table = ttk.Frame(left_frame)
-        comp_table.pack(fill="both", expand=True, padx=5, pady=3)
+        comp_table.pack(fill="both", expand=True, padx=8, pady=8)
         cols_c = ("id", "period", "name", "type", "max_score")
         self.tree_comps = ttk.Treeview(comp_table, columns=cols_c, show="headings", height=4)
         style_table(self.tree_comps)
@@ -213,20 +246,34 @@ class ClassEnrollmentTab(ttk.Frame):
         self.tree_comps.pack(side="left", fill="both", expand=True)
 
     def _build_enrollment_section(self, bottom_frame):
-        right_frame = ttk.LabelFrame(bottom_frame, text="3. Student Enrollment (for selected class)")
-        right_frame.pack(side="right", fill="both", expand=True, padx=(5, 0))
+        right_frame = ttk.LabelFrame(bottom_frame, text="Enrollment", style="Section.TLabelframe")
+        right_frame.pack(fill="both", expand=True, padx=0)
 
-        en_ctrl = ttk.Frame(right_frame)
-        en_ctrl.pack(fill="x", padx=5, pady=4)
-        ttk.Label(en_ctrl, text="Select Student:").pack(side="left", padx=3)
+        en_ctrl = form_panel(right_frame, text="Enrollment Form")
+        en_ctrl.pack(fill="x", padx=8, pady=8)
+        ttk.Label(en_ctrl, text="Select Student:").pack(side="left", padx=8)
         self.cb_enroll_student = ttk.Combobox(en_ctrl, width=22)
-        self.cb_enroll_student.pack(side="left", padx=3)
+        self.cb_enroll_student.pack(side="left", fill="x", expand=True, padx=8)
         en_buttons = ttk.Frame(right_frame)
-        en_buttons.pack(fill="x", padx=5, pady=4)
-        ttk.Button(en_buttons, text="Enroll Student", command=self.enroll_student).grid(row=0, column=0, padx=3, pady=3)
-        ttk.Button(en_buttons, text="Drop Selected", command=self.drop_student).grid(row=0, column=1, padx=3, pady=3)
-        ttk.Button(en_buttons, text="Restore", command=self.restore_student).grid(row=1, column=0, padx=3, pady=3, sticky="ew")
-        ttk.Button(en_buttons, text="Remove", command=self.remove_enrollment).grid(row=1, column=1, padx=3, pady=3, sticky="ew")
+        en_buttons.pack(fill="x", padx=8, pady=8)
+        en_buttons.columnconfigure(0, weight=1, uniform="actions")
+        en_buttons.columnconfigure(1, weight=1, uniform="actions")
+        ttk.Button(
+            en_buttons, text="Enroll Student",
+            command=self.enroll_student
+        ).grid(row=0, column=0, padx=8, pady=8, sticky="ew")
+        ttk.Button(
+            en_buttons, text="Drop Selected",
+            command=self.drop_student
+        ).grid(row=0, column=1, padx=8, pady=8, sticky="ew")
+        ttk.Button(
+            en_buttons, text="Restore",
+            command=self.restore_student
+        ).grid(row=1, column=0, padx=8, pady=8, sticky="ew")
+        ttk.Button(
+            en_buttons, text="Remove", style="Delete.TButton",
+            command=self.remove_enrollment
+        ).grid(row=1, column=1, padx=8, pady=8, sticky="ew")
 
         self._build_enrollment_table(right_frame)
 
@@ -247,7 +294,7 @@ class ClassEnrollmentTab(ttk.Frame):
         self.tree_enrollments.column("program", width=90)
         self.tree_enrollments.column("enroll_date", width=90)
         self.tree_enrollments.column("status", width=80)
-        self.tree_enrollments.pack(fill="both", expand=True, padx=5, pady=4)
+        self.tree_enrollments.pack(fill="both", expand=True, padx=8, pady=8)
 
     def _update_scroll_region(self, event):
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
@@ -261,7 +308,7 @@ class ClassEnrollmentTab(ttk.Frame):
             self.load_classes()
             self.load_weights_and_components()
         except Exception:
-            messagebox.showerror("Database Error", "Could not load records. Check the database connection.")
+            show_message(self, messagebox.showerror, "Database Error", "Could not load records. Check the database connection.")
 
     def load_dropdowns(self):
         # subjects dropdown
@@ -334,7 +381,7 @@ class ClassEnrollmentTab(ttk.Frame):
             self.load_weights_and_components()
             self.load_enrollments()
         except Exception:
-            messagebox.showerror("Database Error", "Could not load records. Check the database connection.")
+            show_message(self, messagebox.showerror, "Database Error", "Could not load records. Check the database connection.")
 
     def clear_class_form(self):
         self.entry_code.delete(0, "end")
@@ -355,7 +402,7 @@ class ClassEnrollmentTab(ttk.Frame):
 
     def save_class_form(self, updating):
         if updating and not self.selected_offering_id:
-            messagebox.showwarning("No Selection", "Select a class to update.")
+            show_message(self, messagebox.showwarning, "No Selection", "Select a class to update.")
             return
         try:
             offering = ClassOffering(
@@ -368,30 +415,30 @@ class ClassEnrollmentTab(ttk.Frame):
                 semester=self.cb_semester.get(),
             )
             self.class_service.save(offering)
-            messagebox.showinfo("Success", "Class saved.")
+            show_message(self, messagebox.showinfo, "Success", "Class saved.")
             self.load_classes()
         except ValueError as error:
-            messagebox.showwarning("Validation", str(error))
+            show_message(self, messagebox.showwarning, "Validation", str(error))
         except Exception:
-            messagebox.showerror("Database Error", "Could not save the class. Check the database connection.")
+            show_message(self, messagebox.showerror, "Database Error", "Could not save the class. Check the database connection.")
 
     def delete_class(self):
         if not self.selected_offering_id:
-            messagebox.showwarning("No Selection", "Select a class to delete.")
+            show_message(self, messagebox.showwarning, "No Selection", "Select a class to delete.")
             return
         if not messagebox.askyesno("Confirm Delete", "Delete this class?"):
             return
         try:
             self.class_service.delete(self.selected_offering_id)
-            messagebox.showinfo("Success", "Class deleted.")
+            show_message(self, messagebox.showinfo, "Success", "Class deleted.")
             self.clear_class_form()
             self.load_classes()
             self.load_weights_and_components()
             self.load_enrollments()
         except ValueError as error:
-            messagebox.showwarning("Cannot Delete", str(error))
+            show_message(self, messagebox.showwarning, "Cannot Delete", str(error))
         except Exception:
-            messagebox.showerror("Database Error", "Could not delete the class. Refresh and try again.")
+            show_message(self, messagebox.showerror, "Database Error", "Could not delete the class. Refresh and try again.")
 
     def load_weights_and_components(self, event=None):
         try:
@@ -415,15 +462,15 @@ class ClassEnrollmentTab(ttk.Frame):
                 if component.period_id != period_id:
                     continue
                 row = len(self.weight_entries)
-                ttk.Label(self.weight_form, text=component.name).grid(row=row, column=0, sticky="w", padx=3)
+                ttk.Label(self.weight_form, text=component.name).grid(row=row, column=0, sticky="w", padx=8)
                 entry = ttk.Entry(self.weight_form, width=8)
-                entry.grid(row=row, column=1, padx=3, pady=2)
+                entry.grid(row=row, column=1, padx=8, pady=(0, 8), sticky="ew")
                 if component.component_id in saved:
                     entry.insert(0, f"{saved[component.component_id]:.2f}")
                 self.weight_entries[component.component_id] = entry
             self.lbl_weight_total.config(text=self.config_service.weight_summary(self.selected_offering_id))
         except Exception:
-            messagebox.showerror("Database Error", "Could not load records. Check the database connection.")
+            show_message(self, messagebox.showerror, "Database Error", "Could not load records. Check the database connection.")
 
     def save_weight(self):
         try:
@@ -431,12 +478,12 @@ class ClassEnrollmentTab(ttk.Frame):
             message = self.config_service.save_weights(
                 self.selected_offering_id, self.period_map.get(self.cb_weight_period.get()), values,
             )
-            messagebox.showinfo("Success", message)
+            show_message(self, messagebox.showinfo, "Success", message)
             self.load_weights_and_components()
         except ValueError as error:
-            messagebox.showwarning("Invalid Weights", str(error))
+            show_message(self, messagebox.showwarning, "Invalid Weights", str(error))
         except Exception:
-            messagebox.showerror("Database Error", "Could not save weights. Check the database connection.")
+            show_message(self, messagebox.showerror, "Database Error", "Could not save weights. Check the database connection.")
 
     def add_period(self):
         try:
@@ -448,11 +495,11 @@ class ClassEnrollmentTab(ttk.Frame):
             self.cb_period.set(period.name)
             self.cb_weight_period.set(period.name)
             self.load_weights_and_components()
-            messagebox.showinfo("Success", "Grading period added.")
+            show_message(self, messagebox.showinfo, "Success", "Grading period added.")
         except ValueError as error:
-            messagebox.showwarning("Validation", str(error))
+            show_message(self, messagebox.showwarning, "Validation", str(error))
         except Exception:
-            messagebox.showerror("Database Error", "Could not save the period. Check the database connection.")
+            show_message(self, messagebox.showerror, "Database Error", "Could not save the period. Check the database connection.")
 
     def add_component(self):
         try:
@@ -464,16 +511,16 @@ class ClassEnrollmentTab(ttk.Frame):
             self.config_service.add_component(component)
             self.entry_comp_name.delete(0, "end")
             self.load_weights_and_components()
-            messagebox.showinfo("Success", "Component added.")
+            show_message(self, messagebox.showinfo, "Success", "Component added.")
         except ValueError as error:
-            messagebox.showwarning("Validation", str(error))
+            show_message(self, messagebox.showwarning, "Validation", str(error))
         except Exception:
-            messagebox.showerror("Database Error", "Could not save the component. Check the database connection.")
+            show_message(self, messagebox.showerror, "Database Error", "Could not save the component. Check the database connection.")
 
     def delete_component(self):
         selected = self.tree_comps.selection()
         if not selected:
-            messagebox.showwarning("No Selection", "Select a component to delete.")
+            show_message(self, messagebox.showwarning, "No Selection", "Select a component to delete.")
             return
         if not messagebox.askyesno("Confirm Delete", "Delete this component?"):
             return
@@ -481,9 +528,9 @@ class ClassEnrollmentTab(ttk.Frame):
             self.config_service.delete_component(self.tree_comps.item(selected[0], "values")[0])
             self.load_weights_and_components()
         except ValueError as error:
-            messagebox.showwarning("Cannot Delete", str(error))
+            show_message(self, messagebox.showwarning, "Cannot Delete", str(error))
         except Exception:
-            messagebox.showerror("Database Error", "Could not delete the component. Refresh and try again.")
+            show_message(self, messagebox.showerror, "Database Error", "Could not delete the component. Refresh and try again.")
 
     def load_enrollments(self):
         try:
@@ -498,7 +545,7 @@ class ClassEnrollmentTab(ttk.Frame):
                     e.student_program or "", str(e.enroll_date or ""), e.status
                 ))
         except Exception:
-            messagebox.showerror("Database Error", "Could not load records. Check the database connection.")
+            show_message(self, messagebox.showerror, "Database Error", "Could not load records. Check the database connection.")
 
     def enroll_student(self):
         try:
@@ -506,14 +553,14 @@ class ClassEnrollmentTab(ttk.Frame):
             student_id = self.student_map.get(value, value)
             success, message, _ = self.enrollment_service.enroll_student(student_id, self.selected_offering_id)
             if success:
-                messagebox.showinfo("Success", message)
+                show_message(self, messagebox.showinfo, "Success", message)
                 self.load_enrollments()
             else:
-                messagebox.showwarning("Enrollment Issue", message)
+                show_message(self, messagebox.showwarning, "Enrollment Issue", message)
         except ValueError as error:
-            messagebox.showwarning("Validation", str(error))
+            show_message(self, messagebox.showwarning, "Validation", str(error))
         except Exception:
-            messagebox.showerror("Database Error", "Could not save the enrollment. Check the database connection.")
+            show_message(self, messagebox.showerror, "Database Error", "Could not save the enrollment. Check the database connection.")
 
     def drop_student(self):
         self.change_status("Dropped")
@@ -524,21 +571,21 @@ class ClassEnrollmentTab(ttk.Frame):
     def change_status(self, status):
         selected = self.tree_enrollments.selection()
         if not selected:
-            messagebox.showwarning("No Selection", "Select an enrolled student.")
+            show_message(self, messagebox.showwarning, "No Selection", "Select an enrolled student.")
             return
         try:
             enrollment_id = self.tree_enrollments.item(selected[0], "values")[0]
             self.enrollment_service.update_status(enrollment_id, status)
             self.load_enrollments()
         except ValueError as error:
-            messagebox.showwarning("Validation", str(error))
+            show_message(self, messagebox.showwarning, "Validation", str(error))
         except Exception:
-            messagebox.showerror("Database Error", "Could not update the enrollment. Check the database connection.")
+            show_message(self, messagebox.showerror, "Database Error", "Could not update the enrollment. Check the database connection.")
 
     def remove_enrollment(self):
         selected = self.tree_enrollments.selection()
         if not selected:
-            messagebox.showwarning("No Selection", "Select an enrolled student.")
+            show_message(self, messagebox.showwarning, "No Selection", "Select an enrolled student.")
             return
         if not messagebox.askyesno("Confirm Delete", "Remove this enrollment?"):
             return
@@ -547,6 +594,6 @@ class ClassEnrollmentTab(ttk.Frame):
             self.enrollment_service.remove_enrollment(enrollment_id)
             self.load_enrollments()
         except ValueError as error:
-            messagebox.showwarning("Cannot Remove", str(error))
+            show_message(self, messagebox.showwarning, "Cannot Remove", str(error))
         except Exception:
-            messagebox.showerror("Database Error", "Could not remove the enrollment. Refresh and try again.")
+            show_message(self, messagebox.showerror, "Database Error", "Could not remove the enrollment. Refresh and try again.")

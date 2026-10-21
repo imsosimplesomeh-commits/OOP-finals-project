@@ -33,6 +33,15 @@ class StudentGradeManagementApp(tk.Tk):
                 "Could not initialize the database. Check PostgreSQL and your connection settings."
             )
 
+        self._build_header()
+        self._build_status_bar(database_ready)
+
+        # The notebook keeps the original page-change and refresh behavior.
+        self.notebook = ttk.Notebook(self, style="Sidebar.TNotebook")
+        self.notebook.pack(fill="both", expand=True, padx=16, pady=(0, 6))
+        self._build_tabs()
+
+    def _build_header(self):
         header = ttk.Frame(self, padding=(18, 12), style="Banner.TFrame")
         header.pack(fill="x", padx=16, pady=(14, 8))
         ttk.Label(
@@ -49,6 +58,7 @@ class StudentGradeManagementApp(tk.Tk):
             fill="x", padx=32, pady=(0, 6)
         )
 
+    def _build_status_bar(self, database_ready):
         # reserve space before the notebook fills the window
         status_bar = ttk.Frame(self, padding=(16, 6), style="Page.TFrame")
         status_bar.pack(fill="x", side="bottom")
@@ -63,11 +73,6 @@ class StudentGradeManagementApp(tk.Tk):
                    command=self._reset_database).pack(side="right")
         ttk.Label(status_bar, text="CSPC 103 | NDMU CEAC",
                   style="Status.TLabel").pack(side="right", padx=16)
-
-        # The notebook keeps the original page-change and refresh behavior.
-        self.notebook = ttk.Notebook(self, style="Sidebar.TNotebook")
-        self.notebook.pack(fill="both", expand=True, padx=16, pady=(0, 6))
-        self._build_tabs()
 
     def _build_tabs(self):
         self.notebook.unbind("<<NotebookTabChanged>>")

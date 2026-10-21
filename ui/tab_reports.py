@@ -149,7 +149,7 @@ class ReportsTab(ttk.Frame):
     def generate_report(self):
         filter_val = self.cb_filter.get()
         if not filter_val:
-            show_message(self, messagebox.showwarning, "Validation", "Please select a target class or student.")
+            show_message(self, messagebox.showwarning, "Validation", "Select a class or student for the report.")
             return
 
         rtype = self.cb_report_type.get()

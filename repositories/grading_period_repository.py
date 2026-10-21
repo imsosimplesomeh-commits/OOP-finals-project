@@ -46,21 +46,6 @@ class GradingPeriodRepository(Repository):
         finally:
             conn.close()
 
-    def find_by_term(self, school_year, semester):
-        conn = get_connection()
-        try:
-            cur = conn.cursor()
-            cur.execute(
-                "SELECT period_id, name, start_date, end_date, school_year, semester, period_order "
-                "FROM grading_periods WHERE school_year = %s AND semester = %s ORDER BY period_order, period_id",
-                (school_year, semester)
-            )
-            rows = cur.fetchall()
-            cur.close()
-            return [self._row_to_period(r) for r in rows]
-        finally:
-            conn.close()
-
     def save(self, period):
         conn = get_connection()
         try:

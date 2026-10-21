@@ -81,24 +81,6 @@ class ScoreRepository(Repository):
             if own_connection:
                 conn.close()
 
-    def find_by_enrollment_and_component(self, enrollment_id, component_id):
-        conn = get_connection()
-        try:
-            cur = conn.cursor()
-            cur.execute(
-                "SELECT s.score_id, s.enrollment_id, s.component_id, s.score, s.remarks, "
-                "s.date_recorded, gc.name, gc.max_score, gc.type "
-                "FROM grade_component_scores s "
-                "JOIN grade_components gc ON s.component_id = gc.component_id "
-                "WHERE s.enrollment_id = %s AND s.component_id = %s",
-                (enrollment_id, component_id)
-            )
-            row = cur.fetchone()
-            cur.close()
-            return self._row_to_score(row, detailed=True) if row else None
-        finally:
-            conn.close()
-
     def save(self, score, changed_by=None, connection=None):
         own_connection = connection is None
         conn = get_connection() if own_connection else connection

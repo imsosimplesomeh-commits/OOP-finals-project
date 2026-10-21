@@ -60,12 +60,6 @@ class ClassOffering:
     subject_name: Optional[str] = None
     teacher_name: Optional[str] = None
 
-    @property
-    def display_name(self) -> str:
-        sub = self.subject_code or "Subject"
-        sec = f" (Sec {self.section})" if self.section else ""
-        return f"{self.class_code} - {sub}{sec}"
-
 
 @dataclass
 class GradingPeriod:

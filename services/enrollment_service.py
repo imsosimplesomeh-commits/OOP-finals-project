@@ -54,9 +54,6 @@ class EnrollmentService:
     def get_class_enrollments(self, offering_id):
         return self.enrollment_repo.find_by_offering(offering_id)
 
-    def get_student_enrollments(self, student_id):
-        return self.enrollment_repo.find_by_student(student_id)
-
     def update_status(self, enrollment_id, new_status):
         en = self.enrollment_repo.find_by_id(enrollment_id)
         if not en:
@@ -67,9 +64,6 @@ class EnrollmentService:
         en.status = new_status
         self.enrollment_repo.save(en)
         return True
-
-    def drop_student(self, enrollment_id):
-        return self.update_status(enrollment_id, "Dropped")
 
     def remove_enrollment(self, enrollment_id):
         if not self.enrollment_repo.find_by_id(enrollment_id):

@@ -608,7 +608,7 @@ class ClassEnrollmentTab(ttk.Frame):
     def change_status(self, status):
         selected = self.tree_enrollments.selection()
         if not selected:
-            show_message(self, messagebox.showwarning, "No Selection", "Select an enrolled student.")
+            show_message(self, messagebox.showwarning, "No Selection", "Select an enrollment to change.")
             return
         try:
             enrollment_id = self.tree_enrollments.item(selected[0], "values")[0]
@@ -623,7 +623,7 @@ class ClassEnrollmentTab(ttk.Frame):
     def remove_enrollment(self):
         selected = self.tree_enrollments.selection()
         if not selected:
-            show_message(self, messagebox.showwarning, "No Selection", "Select an enrolled student.")
+            show_message(self, messagebox.showwarning, "No Selection", "Select an enrollment to remove.")
             return
         if not messagebox.askyesno("Confirm Delete", "Remove this enrollment?"):
             return

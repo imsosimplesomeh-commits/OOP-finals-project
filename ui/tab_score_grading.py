@@ -365,7 +365,7 @@ class ScoreGradingTab(ttk.Frame):
 
     def calculate_selected_student(self):
         if not self.selected_enrollment_id or not self.selected_offering_id:
-            show_message(self, messagebox.showwarning, "Validation", "Select a student to calculate grade.")
+            show_message(self, messagebox.showwarning, "Validation", "Select a student to compute the grade.")
             return
         try:
             grade = self.grading_service.generate_and_save_grade(self.selected_enrollment_id, self.selected_offering_id)
@@ -386,7 +386,7 @@ class ScoreGradingTab(ttk.Frame):
 
     def bulk_calculate_grades(self):
         if not self.selected_offering_id:
-            show_message(self, messagebox.showwarning, "Validation", "Select a class offering.")
+            show_message(self, messagebox.showwarning, "Validation", "Select a class to compute.")
             return
         try:
             grades = self.grading_service.bulk_compute_class_grades(self.selected_offering_id)

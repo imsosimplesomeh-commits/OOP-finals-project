@@ -27,7 +27,7 @@ class ReportRepository:
     def find_class_students(self, class_id):
         return self._read("""
             SELECT s.student_id, s.last_name || ', ' || s.first_name AS student_name,
-                   s.program, g.midterm_equiv, g.final_equiv
+                   s.program, g.midterm_equiv, g.final_equiv, g.finals_grade, g.overall_grade
             FROM enrollments e
             JOIN students s ON s.student_id = e.student_id
             LEFT JOIN grades g ON g.enrollment_id = e.enrollment_id
@@ -39,7 +39,7 @@ class ReportRepository:
         return self._read("""
             SELECT s.subject_code, s.subject_name, s.units,
                    t.first_name || ' ' || t.last_name AS teacher_name,
-                   g.final_equiv, c.school_year, c.semester
+                   g.final_equiv, g.finals_grade, g.overall_grade, c.school_year, c.semester
             FROM enrollments e
             JOIN class_offerings c ON c.class_id = e.class_id
             JOIN subjects s ON s.subject_id = c.subject_id

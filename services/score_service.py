@@ -1,6 +1,6 @@
 from db import get_connection
 from repositories import ScoreRepository, EnrollmentRepository, GradeComponentRepository
-from repositories import GradePercentageRepository, GradeRepository
+from repositories import GradePercentageRepository
 from services.grade_calculator import GradeCalculator
 from services.grading_service import GradingService
 from services.validation import number
@@ -12,7 +12,6 @@ class ScoreService:
         self.enrollments = EnrollmentRepository()
         self.components = GradeComponentRepository()
         self.weights = GradePercentageRepository()
-        self.grades = GradeRepository()
         self.grading = GradingService()
 
     def get_scores(self, enrollment_id):
@@ -60,8 +59,8 @@ class ScoreService:
             conn.close()
 
     def refresh_grade(self, enrollment, changed_by=None, connection=None):
-        # the grade must see the score changes before the transaction commits
-        if self.grades.find_by_enrollment(enrollment.enrollment_id, connection=connection):
-            self.grading.generate_and_save_grade(
-                enrollment.enrollment_id, enrollment.class_id, changed_by=changed_by, connection=connection,
-            )
+        # the grade must see the score changes before the transaction commits;
+        # saving it here keeps the grade viewable even before anyone presses Compute
+        self.grading.generate_and_save_grade(
+            enrollment.enrollment_id, enrollment.class_id, changed_by=changed_by, connection=connection,
+        )

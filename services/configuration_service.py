@@ -52,14 +52,15 @@ class ConfigurationService:
                 raise ValueError("That component already exists in this period.")
         return self.components.save(component)
 
-    def delete_component(self, component_id):
-        if not self.components.find_by_id(component_id):
+    def delete_component(self, component_id, changed_by=None):
+        # scores are never deleted silently; weights of an unscored component go with it
+        component = self.components.find_by_id(component_id)
+        if not component:
             raise ValueError("Component not found. Refresh the list.")
-        if any(score.component_id == str(component_id) for score in self.scores.find_all()):
-            raise ValueError("Cannot delete this component because scores depend on it.")
-        if any(weight.component_id == str(component_id) for weight in self.weights.find_all()):
-            raise ValueError("Cannot delete this component because grading weights depend on it.")
-        return self.components.delete_by_id(component_id)
+        scored = [score for score in self.scores.find_all() if score.component_id == str(component_id)]
+        if scored:
+            raise ValueError(f"Cannot delete {component.name} because {len(scored)} score(s) depend on it.")
+        return self.components.delete_by_id(component_id, changed_by=changed_by)
 
     def save_weights(self, class_id, period_id, values, changed_by=None):
         if not class_id or not self.classes.find_by_id(class_id):

@@ -19,6 +19,19 @@ GRADE_SCALE = [
 FAILING_POINT = 5.00
 PASSING_POINT = 3.00
 
+# Overall = Midterm x 40% + Finals x 60%; the UI reads these, never its own numbers
+MIDTERM_WEIGHT = 40
+FINALS_WEIGHT = 60
+
+# when Finals is missing, the Midterm percent is shown as a provisional overall
+SHOW_MIDTERM_ONLY_OVERALL = True
+
+# period and grade states
+COMPLETE = "Complete"
+INCOMPLETE = "Incomplete"
+NOT_SET = "N/A"
+MIDTERM_ONLY = "Midterm only"
+
 
 def round_half_up(value, places=2):
     # normal school rounding (2.345 -> 2.35), python's round() can surprise you
@@ -68,8 +81,45 @@ class GradeCalculator:
         # because 96.995 must still land in the 1.25 band
         return round(total, 6)
 
+    @classmethod
+    def period_result(cls, items):
+        # items = (score, max_score, weight) for every component of one period
+        # returns (state, percentage); a missing score or weight is never treated as 0
+        if not items:
+            return NOT_SET, None
+        valid, _ = cls.validate_weights([weight for _, _, weight in items])
+        if not valid or any(score is None for score, _, _ in items):
+            return INCOMPLETE, None
+        return COMPLETE, cls.compute_period_grade(items)
+
+    @classmethod
+    def overall_result(cls, midterm, finals):
+        # midterm and finals are (state, percentage) pairs; returns (overall, status)
+        midterm_state, midterm_grade = midterm
+        finals_state, finals_grade = finals
+        if midterm_state != COMPLETE:
+            return None, INCOMPLETE
+        if finals_state == COMPLETE:
+            return cls.compute_overall_grade(midterm_grade, finals_grade), COMPLETE
+        if SHOW_MIDTERM_ONLY_OVERALL:
+            return midterm_grade, MIDTERM_ONLY
+        return None, INCOMPLETE
+
     @staticmethod
-    def compute_overall_grade(midterm, finals, midterm_weight=40, finals_weight=60):
+    def status_of(grade):
+        # status of a saved grade row, so screens and reports agree with the database
+        if grade is None or grade.overall_grade is None:
+            return INCOMPLETE
+        if grade.finals_grade is None:
+            return MIDTERM_ONLY
+        return COMPLETE
+
+    @staticmethod
+    def formula_text():
+        return f"Overall = Midterm {MIDTERM_WEIGHT}% + Finals {FINALS_WEIGHT}%"
+
+    @staticmethod
+    def compute_overall_grade(midterm, finals, midterm_weight=MIDTERM_WEIGHT, finals_weight=FINALS_WEIGHT):
         if midterm is None or finals is None:
             return None
         return round((midterm * midterm_weight + finals * finals_weight)

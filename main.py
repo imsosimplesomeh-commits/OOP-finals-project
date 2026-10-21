@@ -9,6 +9,7 @@ from ui.tab_management import ManagementTab
 from ui.tab_class_enrollment import ClassEnrollmentTab
 from ui.tab_score_grading import ScoreGradingTab
 from ui.tab_reports import ReportsTab
+from ui.tab_audit import AuditLogTab
 from ui.theme import apply_theme
 
 
@@ -84,6 +85,9 @@ class StudentGradeManagementApp(tk.Tk):
         self.tab_reports = ReportsTab(self.notebook)
         self.notebook.add(self.tab_reports, text="IV  Reports")
 
+        self.tab_audit = AuditLogTab(self.notebook)
+        self.notebook.add(self.tab_audit, text="V  Audit Log")
+
         # reload dropdowns and tables whenever the user clicks another tab
         self.notebook.bind("<<NotebookTabChanged>>", self._on_tab_changed)
 
@@ -123,6 +127,8 @@ class StudentGradeManagementApp(tk.Tk):
             self.tab_grading.refresh_all()
         elif selected_index == 3:
             self.tab_reports.load_dropdowns()
+        elif selected_index == 4:
+            self.tab_audit.load_data()
 
 
 if __name__ == "__main__":

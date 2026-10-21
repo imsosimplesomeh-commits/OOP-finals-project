@@ -130,6 +130,14 @@ class ClassEnrollmentTab(ttk.Frame):
         ).grid(row=0, column=4, padx=(0, 8), sticky="ew")
 
     def _build_class_table(self, top_frame):
+        filter_bar = ttk.Frame(top_frame)
+        filter_bar.pack(fill="x", padx=8, pady=(8, 0))
+        ttk.Label(filter_bar, text="Filter by Teacher:").pack(side="left", padx=8)
+        self.cb_teacher_filter = ttk.Combobox(filter_bar, width=40, state="readonly")
+        self.cb_teacher_filter.set("All teachers")
+        self.cb_teacher_filter.pack(side="left", padx=8)
+        self.cb_teacher_filter.bind("<<ComboboxSelected>>", lambda event: self.load_classes())
+
         cols = ("id", "code", "subject", "teacher", "section", "schedule", "room", "term")
         self.tree_classes = ttk.Treeview(top_frame, columns=cols, show="headings", height=5)
         style_table(self.tree_classes)
@@ -320,6 +328,9 @@ class ClassEnrollmentTab(ttk.Frame):
         teachers = self.teacher_service.find_all()
         self.teacher_map = {f"{t.full_name} ({t.department or 'Faculty'})": t.teacher_id for t in teachers}
         self.cb_teacher["values"] = list(self.teacher_map.keys())
+        self.cb_teacher_filter["values"] = ["All teachers"] + list(self.teacher_map.keys())
+        if self.cb_teacher_filter.get() not in self.teacher_map:
+            self.cb_teacher_filter.set("All teachers")
 
         # students dropdown
         students = self.student_service.find_all()
@@ -340,6 +351,10 @@ class ClassEnrollmentTab(ttk.Frame):
         for r in self.tree_classes.get_children():
             self.tree_classes.delete(r)
         classes = self.class_service.find_all()
+        # CL-03: show only the classes of the chosen teacher
+        teacher_id = self.teacher_map.get(self.cb_teacher_filter.get())
+        if teacher_id:
+            classes = [c for c in classes if c.teacher_id == teacher_id]
         for index, c in enumerate(classes):
             self.tree_classes.insert("", "end", tags=("even" if index % 2 == 0 else "odd",), values=(
                 c.class_id, c.class_code, c.subject_name or c.subject_code,

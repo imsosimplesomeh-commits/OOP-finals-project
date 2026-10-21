@@ -22,6 +22,7 @@ class ScoreGradingTab(ttk.Frame):
 
         self.class_map = {}
         self.student_map = {}
+        self.student_number_map = {}
         self.component_map = {}
         self.comp_max_scores = {}
 
@@ -84,7 +85,8 @@ class ScoreGradingTab(ttk.Frame):
         f_entry.columnconfigure(1, weight=1)
 
         ttk.Label(f_entry, text="Student:").grid(row=0, column=0, padx=8, pady=(0, 8), sticky="w")
-        self.cb_student = ttk.Combobox(f_entry, width=18, state="readonly")
+        # not readonly, so a student number can be typed (SC-04 shows why it is refused)
+        self.cb_student = ttk.Combobox(f_entry, width=18)
         self.cb_student.grid(row=0, column=1, padx=8, pady=(0, 8), sticky="ew")
         self.cb_student.bind("<<ComboboxSelected>>", self.on_student_change)
 
@@ -220,6 +222,7 @@ class ScoreGradingTab(ttk.Frame):
     def load_class_students(self):
         enrollments = self.enrollment_service.get_class_enrollments(self.selected_offering_id)
         self.student_map = {f"{e.student_name}": e.enrollment_id for e in enrollments}
+        self.student_number_map = {e.student_id: e.enrollment_id for e in enrollments}
         self.cb_student["values"] = list(self.student_map.keys())
         if self.student_map:
             self.cb_student.current(0)
@@ -310,9 +313,20 @@ class ScoreGradingTab(ttk.Frame):
         self.entry_remarks.insert(0, values[7])
 
     def save_score(self):
+        value = self.cb_student.get().strip()
+        enrollment_id = self.student_map.get(value) or self.student_number_map.get(value)
+        if not enrollment_id:
+            if not value:
+                message = "Select a student first."
+            else:
+                message = (f"'{value}' is not enrolled in this class, so no score can be saved. "
+                           "Only enrolled students appear in the Student list.")
+            show_message(self, messagebox.showwarning, "Not Enrolled", message)
+            return
+        self.selected_enrollment_id = enrollment_id
         try:
             score = GradeComponentScore(
-                enrollment_id=self.student_map.get(self.cb_student.get()),
+                enrollment_id=enrollment_id,
                 component_id=self.component_map.get(self.cb_comp.get()),
                 score=self.entry_raw_score.get(),
                 remarks=self.entry_remarks.get().strip() or None,

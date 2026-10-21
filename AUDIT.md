@@ -87,3 +87,39 @@ Source of truth: `SPEC.md`. Table names in SPEC (STUDENT, GRADE, ...) map to the
 | Confirmations | PASS | Every delete asks first; Reset asks first. |
 | Appendix | PARTIAL | Row counts match; semester values are "1st Semester" instead of "1st". |
 | Code cleanup | PARTIAL | Unused `find_by_offering_and_period`; overall weights 40/60 repeated in service and UI; `db.init_db` (151 lines) duplicates the schema. |
+
+## Final result (branch `refinements`)
+
+Run on a fresh scratch database built from `schema.sql`, in SPEC order, through the real GUI.
+
+| Check | Result |
+| --- | --- |
+| 52 test cases through the GUI | 52/52 PASS |
+| Service-level checks with SPEC numbers | 60/60 PASS |
+| `verify_appendix.sql` after the full run | 38/38 PASS (row counts, expected rows, audit entries, must-not-exist rows) |
+| Unit tests (`python -m unittest discover tests`) | 21/21 OK |
+| Teacher items 1-4 through the GUI | 17/17 PASS |
+| Empty database: every button on every tab clicked | no crash, no traceback; each shows a clear message or does nothing |
+
+Changes per baseline finding:
+
+| Baseline finding | Now | Fix |
+| --- | --- | --- |
+| CL-01 PARTIAL: semester "1st Semester" | PASS | Semester dropdown stores "1st" / "2nd" / "Summer"; reports print "1st Semester" |
+| GC-02 PARTIAL: weights not in the table | PASS | Config table: Period, Component, Category, Max Score, Weight (%) for the selected class, plus a total row per period; "-" when no weight is set |
+| Item 1 FAIL | PASS | Score dropdown shows "Midterm Quiz (/50 - 20%)"; the Max / Weight label shows "50 / 20%"; Recorded Scores has a Weight column |
+| Item 2 PARTIAL | PASS | Grades table: Midterm %, Midterm GP, Finals %, Finals GP, Overall %, Overall GP, Remarks, Status; formula label "Overall = Midterm 40% + Finals 60%" read from `GradeCalculator` constants; the editable 40/60 boxes are gone |
+| Item 3 | PASS | Remarks come only from `GradeCalculator.remarks_for`; the score form's note box is labelled "Score Note" |
+| Item 4 FAIL | PASS | Period states Complete / Incomplete / N/A; Midterm-only provisional Overall behind `SHOW_MIDTERM_ONLY_OVERALL`; reports mark it `*` with "* Midterm only"; deleting an unscored component removes its weights in one transaction with audit rows, and the grade still shows Midterm |
+| GWA rounding (found during the audit) | PASS | The report rounded with Python's default half-even rule (2.125 printed 2.12); it now uses `GradeCalculator.weighted_average` (half up, 2.13). SPEC value 2.05 unchanged |
+| Code cleanup PARTIAL | PASS | `schema.sql` is the one schema source (pg_dump identical to the old DDL); unused methods removed; main window constructor split |
+
+Behavior changes to know about:
+
+- The saved GRADE row is refreshed on every score save, so grades are viewable before Compute is pressed. Compute All still recomputes every student (needed after a weight change, GR-03) and updates the same row.
+- Components are shared by all classes. Adding a component to a period leaves that period "Incomplete" in every class until its weights include the new component.
+
+Still open:
+
+- Finals GP is converted from the saved two-decimal Finals percentage, because GRADE has no column for it. A Finals percentage from 96.995 to 96.999 would show 1.00 instead of 1.25. Midterm GP and Overall GP are stored from the unrounded value and are exact. The SPEC data never reaches this edge.
+- `seed_data.py` and `ui/theme.py` keep long declarative blocks (sample data, style table). They were not split; splitting them would not make them clearer.

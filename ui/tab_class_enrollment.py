@@ -481,6 +481,8 @@ class ClassEnrollmentTab(ttk.Frame):
             show_message(self, messagebox.showinfo, "Success", message)
             self.load_weights_and_components()
         except ValueError as error:
+            # put the saved weights back in the boxes so the screen matches the database
+            self.load_weights_and_components()
             show_message(self, messagebox.showwarning, "Invalid Weights", str(error))
         except Exception:
             show_message(self, messagebox.showerror, "Database Error", "Could not save weights. Check the database connection.")
@@ -527,6 +529,7 @@ class ClassEnrollmentTab(ttk.Frame):
         try:
             self.config_service.delete_component(self.tree_comps.item(selected[0], "values")[0])
             self.load_weights_and_components()
+            show_message(self, messagebox.showinfo, "Success", "Component deleted.")
         except ValueError as error:
             show_message(self, messagebox.showwarning, "Cannot Delete", str(error))
         except Exception:
@@ -577,6 +580,7 @@ class ClassEnrollmentTab(ttk.Frame):
             enrollment_id = self.tree_enrollments.item(selected[0], "values")[0]
             self.enrollment_service.update_status(enrollment_id, status)
             self.load_enrollments()
+            show_message(self, messagebox.showinfo, "Success", f"Enrollment status set to {status}.")
         except ValueError as error:
             show_message(self, messagebox.showwarning, "Validation", str(error))
         except Exception:
@@ -593,6 +597,7 @@ class ClassEnrollmentTab(ttk.Frame):
             enrollment_id = self.tree_enrollments.item(selected[0], "values")[0]
             self.enrollment_service.remove_enrollment(enrollment_id)
             self.load_enrollments()
+            show_message(self, messagebox.showinfo, "Success", "Enrollment removed.")
         except ValueError as error:
             show_message(self, messagebox.showwarning, "Cannot Remove", str(error))
         except Exception:

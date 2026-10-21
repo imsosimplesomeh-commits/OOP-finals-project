@@ -8,6 +8,8 @@ from services.score_service import ScoreService
 from services.class_service import ClassService
 from services.enrollment_service import EnrollmentService
 from services.configuration_service import ConfigurationService
+from services.grade_calculator import GradeCalculator, COMPLETE, MIDTERM_ONLY, INCOMPLETE, NOT_SET
+from services.grading_service import MIDTERM_ORDER, FINALS_ORDER
 from ui.theme import style_table, add_message_bar, show_message, form_panel
 
 
@@ -25,6 +27,7 @@ class ScoreGradingTab(ttk.Frame):
         self.student_number_map = {}
         self.component_map = {}
         self.comp_max_scores = {}
+        self.comp_weights = {}
 
         self.selected_offering_id = None
         self.selected_enrollment_id = None
@@ -43,7 +46,7 @@ class ScoreGradingTab(ttk.Frame):
         self._build_grade_table(main_split)
 
     def _build_filters(self):
-        top_bar = form_panel(self, text="Class and Weighting")
+        top_bar = form_panel(self, text="Class and Grade Formula")
         top_bar.pack(fill="x", padx=8, pady=8)
         top_bar.columnconfigure(1, weight=1)
 
@@ -52,15 +55,8 @@ class ScoreGradingTab(ttk.Frame):
         self.cb_class.grid(row=0, column=1, padx=8, pady=8, sticky="ew")
         self.cb_class.bind("<<ComboboxSelected>>", self.on_class_change)
 
-        ttk.Label(top_bar, text="Midterm Weight %:").grid(row=0, column=2, padx=(16, 8), sticky="e")
-        self.entry_mid_weight = ttk.Entry(top_bar, width=5)
-        self.entry_mid_weight.insert(0, "40")
-        self.entry_mid_weight.grid(row=0, column=3, padx=8, sticky="w")
-
-        ttk.Label(top_bar, text="Finals Weight %:").grid(row=0, column=4, padx=(8, 8), sticky="e")
-        self.entry_fin_weight = ttk.Entry(top_bar, width=5)
-        self.entry_fin_weight.insert(0, "60")
-        self.entry_fin_weight.grid(row=0, column=5, padx=8, sticky="w")
+        # the formula comes from GradeCalculator so the screen never disagrees with the math
+        ttk.Label(top_bar, text=GradeCalculator.formula_text()).grid(row=0, column=2, padx=(16, 8), sticky="e")
 
         ttk.Button(
             top_bar, text="Compute All",
@@ -69,7 +65,7 @@ class ScoreGradingTab(ttk.Frame):
         ttk.Button(
             top_bar, text="Refresh",
             command=self.refresh_all
-        ).grid(row=1, column=2, columnspan=4, padx=8, pady=8, sticky="w")
+        ).grid(row=1, column=2, padx=8, pady=8, sticky="w")
 
     def _build_score_section(self, main_split):
         left_frame = ttk.LabelFrame(main_split, text="Score Entry", style="Section.TLabelframe")
@@ -95,7 +91,7 @@ class ScoreGradingTab(ttk.Frame):
         self.cb_comp.grid(row=1, column=1, padx=8, pady=(0, 8), sticky="ew")
         self.cb_comp.bind("<<ComboboxSelected>>", self.on_comp_change)
 
-        ttk.Label(f_entry, text="Max Score:").grid(row=2, column=0, padx=8, pady=(0, 8), sticky="w")
+        ttk.Label(f_entry, text="Max / Weight:").grid(row=2, column=0, padx=8, pady=(0, 8), sticky="w")
         self.lbl_max_score = ttk.Label(f_entry, text="--")
         self.lbl_max_score.grid(row=2, column=1, padx=8, pady=(0, 8), sticky="ew")
 
@@ -103,7 +99,8 @@ class ScoreGradingTab(ttk.Frame):
         self.entry_raw_score = ttk.Entry(f_entry, width=15)
         self.entry_raw_score.grid(row=3, column=1, padx=8, pady=(0, 8), sticky="ew")
 
-        ttk.Label(f_entry, text="Remarks:").grid(row=4, column=0, padx=8, pady=(0, 8), sticky="w")
+        # a note about this one score; the grade remarks (Passed/Failed) are automatic
+        ttk.Label(f_entry, text="Score Note:").grid(row=4, column=0, padx=8, pady=(0, 8), sticky="w")
         self.entry_remarks = ttk.Entry(f_entry, width=18)
         self.entry_remarks.grid(row=4, column=1, padx=8, pady=(0, 8), sticky="ew")
 
@@ -132,7 +129,7 @@ class ScoreGradingTab(ttk.Frame):
     def _build_score_table(self, left_frame):
         ttk.Label(left_frame, text="Recorded Scores").pack(anchor="w", padx=8, pady=(8, 8))
 
-        cols_s = ("score_id", "component_id", "comp_name", "type", "score", "max", "norm", "remarks")
+        cols_s = ("score_id", "component_id", "comp_name", "type", "score", "max", "weight", "norm", "remarks")
         self.tree_student_scores = ttk.Treeview(left_frame, columns=cols_s, show="headings", height=8)
         style_table(self.tree_student_scores)
         self.tree_student_scores.column("score_id", width=0, stretch=False)
@@ -142,12 +139,14 @@ class ScoreGradingTab(ttk.Frame):
         self.tree_student_scores.heading("type", text="Category")
         self.tree_student_scores.heading("score", text="Score")
         self.tree_student_scores.heading("max", text="Max")
+        self.tree_student_scores.heading("weight", text="Weight")
         self.tree_student_scores.heading("norm", text="Normalized")
 
         self.tree_student_scores.column("comp_name", width=120)
         self.tree_student_scores.column("type", width=80)
         self.tree_student_scores.column("score", width=55)
         self.tree_student_scores.column("max", width=55)
+        self.tree_student_scores.column("weight", width=60)
         self.tree_student_scores.column("norm", width=75)
         self.tree_student_scores.pack(fill="both", expand=True, padx=8, pady=8)
         self.tree_student_scores.bind("<<TreeviewSelect>>", self.on_score_select)
@@ -156,28 +155,26 @@ class ScoreGradingTab(ttk.Frame):
         right_frame = ttk.LabelFrame(main_split, text="Grades", style="Section.TLabelframe")
         right_frame.pack(side="right", fill="both", expand=True, padx=(8, 0))
 
-        cols_g = ("enrollment_id", "student_name", "midterm", "mid_gp", "finals", "fin_gp", "final_grade", "rating", "remarks")
+        cols_g = ("enrollment_id", "student_name", "midterm", "mid_gp", "finals", "fin_gp", "final_grade", "rating", "remarks", "status")
         self.tree_grades = ttk.Treeview(right_frame, columns=cols_g, show="headings", height=14)
         style_table(self.tree_grades)
         self.tree_grades.heading("enrollment_id", text="Enrollment ID")
         self.tree_grades.heading("student_name", text="Student Name")
-        self.tree_grades.heading("midterm", text="Midterm")
-        self.tree_grades.heading("mid_gp", text="MG")
-        self.tree_grades.heading("finals", text="Finals")
+        self.tree_grades.heading("midterm", text="Midterm %")
+        self.tree_grades.heading("mid_gp", text="Midterm GP")
+        self.tree_grades.heading("finals", text="Finals %")
         self.tree_grades.heading("fin_gp", text="Finals GP")
-        self.tree_grades.heading("final_grade", text="Overall Final")
-        self.tree_grades.heading("rating", text="Rating")
+        self.tree_grades.heading("final_grade", text="Overall %")
+        self.tree_grades.heading("rating", text="Overall GP")
         self.tree_grades.heading("remarks", text="Remarks")
+        self.tree_grades.heading("status", text="Status")
 
         self.tree_grades.column("enrollment_id", width=0, stretch=False)
         self.tree_grades.column("student_name", width=120)
-        self.tree_grades.column("midterm", width=75)
-        self.tree_grades.column("mid_gp", width=55)
-        self.tree_grades.column("finals", width=75)
-        self.tree_grades.column("fin_gp", width=70)
-        self.tree_grades.column("final_grade", width=110)
-        self.tree_grades.column("rating", width=85, minwidth=85, stretch=False)
-        self.tree_grades.column("remarks", width=85)
+        for column in ("midterm", "mid_gp", "finals", "fin_gp", "final_grade", "rating"):
+            self.tree_grades.column(column, width=80)
+        self.tree_grades.column("remarks", width=80)
+        self.tree_grades.column("status", width=95)
 
         scrollbar = ttk.Scrollbar(right_frame, orient="vertical", command=self.tree_grades.yview)
         self.tree_grades.configure(yscrollcommand=scrollbar.set)
@@ -238,10 +235,12 @@ class ScoreGradingTab(ttk.Frame):
         comps = self.config_service.get_class_components(self.selected_offering_id)
         self.component_map = {}
         self.comp_max_scores = {}
+        self.comp_weights = {}
         for c in comps:
-            d = f"[{c.period_name or 'Period'}] {c.name} ({c.type})"
+            d = f"[{c.period_name or 'Period'}] {c.name} (/{c.max_score:g} - {self.weight_text(c.percentage_value)})"
             self.component_map[d] = c.component_id
             self.comp_max_scores[c.component_id] = c.max_score
+            self.comp_weights[c.component_id] = c.percentage_value
         self.cb_comp["values"] = list(self.component_map.keys())
         if self.component_map:
             self.cb_comp.current(0)
@@ -257,7 +256,11 @@ class ScoreGradingTab(ttk.Frame):
         cid = self.component_map.get(disp)
         if cid:
             max_s = self.comp_max_scores.get(cid, 100.0)
-            self.lbl_max_score.config(text=f"{max_s:.1f}")
+            self.lbl_max_score.config(text=f"{max_s:g} / {self.weight_text(self.comp_weights.get(cid))}")
+
+    @staticmethod
+    def weight_text(weight):
+        return "-" if weight is None else f"{weight:g}%"
 
     def on_student_change(self, event):
         try:
@@ -294,7 +297,8 @@ class ScoreGradingTab(ttk.Frame):
         for index, (score, normalized) in enumerate(self.score_service.get_scores(self.selected_enrollment_id)):
             self.tree_student_scores.insert("", "end", tags=("even" if index % 2 == 0 else "odd",), values=(
                 score.score_id, score.component_id, score.component_name, score.component_type,
-                f"{score.score:.2f}", f"{score.max_score:.2f}", f"{normalized:.2f}%", score.remarks or "",
+                f"{score.score:.2f}", f"{score.max_score:.2f}",
+                self.weight_text(self.comp_weights.get(score.component_id)), f"{normalized:.2f}%", score.remarks or "",
             ))
 
     def on_score_select(self, event):
@@ -310,7 +314,7 @@ class ScoreGradingTab(ttk.Frame):
         self.entry_raw_score.delete(0, "end")
         self.entry_raw_score.insert(0, values[4])
         self.entry_remarks.delete(0, "end")
-        self.entry_remarks.insert(0, values[7])
+        self.entry_remarks.insert(0, values[8])
 
     def save_score(self):
         value = self.cb_student.get().strip()
@@ -359,39 +363,20 @@ class ScoreGradingTab(ttk.Frame):
         except Exception:
             show_message(self, messagebox.showerror, "Database Error", "Could not delete the score. Refresh and try again.")
 
-    def _get_weights(self):
-        valid, message = self.grading_service.validate_percentages(self.selected_offering_id)
-        if not valid:
-            show_message(self, messagebox.showwarning, "Weight Configuration Error", message)
-            return None
-        try:
-            return self.grading_service.validate_overall_weights(
-                self.entry_mid_weight.get(), self.entry_fin_weight.get(),
-            )
-        except ValueError as error:
-            show_message(self, messagebox.showwarning, "Invalid Weights", str(error))
-            return None
-
     def calculate_selected_student(self):
         if not self.selected_enrollment_id or not self.selected_offering_id:
             show_message(self, messagebox.showwarning, "Validation", "Select a student to calculate grade.")
             return
-
         try:
-            weights = self._get_weights()
-            if weights is None:
-                return
-            mid_w, fin_w = weights
-            grade = self.grading_service.generate_and_save_grade(
-                self.selected_enrollment_id, self.selected_offering_id, mid_w, fin_w
-            )
-            finals_rating = self.grading_service.calculator.to_grade_point(grade.finals_grade)
+            grade = self.grading_service.generate_and_save_grade(self.selected_enrollment_id, self.selected_offering_id)
+            finals_point = GradeCalculator.to_grade_point(grade.finals_grade)
             show_message(self, messagebox.showinfo,
                 "Grade Computed",
-                f"Midterm: {self.grade_text(grade.midterm_grade)}\n"
-                f"Finals: {self.grade_text(grade.finals_grade)} ({self.grade_text(finals_rating)})\n"
-                f"Overall Final Grade: {self.grade_text(grade.overall_grade)}\n"
-                f"Remarks: {grade.remarks}"
+                f"Midterm: {self.grade_text(grade.midterm_grade)} ({self.grade_text(grade.midterm_equiv)})\n"
+                f"Finals: {self.period_text(grade.finals_grade, FINALS_ORDER)} ({self.grade_text(finals_point)})\n"
+                f"Overall: {self.grade_text(grade.overall_grade)} ({self.grade_text(grade.final_equiv)})\n"
+                f"Remarks: {grade.remarks}\n"
+                f"Status: {GradeCalculator.status_of(grade)}"
             )
             self.load_grades_table()
         except ValueError as error:
@@ -403,16 +388,12 @@ class ScoreGradingTab(ttk.Frame):
         if not self.selected_offering_id:
             show_message(self, messagebox.showwarning, "Validation", "Select a class offering.")
             return
-
         try:
-            weights = self._get_weights()
-            if weights is None:
-                return
-            mid_w, fin_w = weights
-            grades = self.grading_service.bulk_compute_class_grades(
-                self.selected_offering_id, mid_w, fin_w
-            )
-            show_message(self, messagebox.showinfo, "Bulk Calculation", f"Successfully computed grades for {len(grades)} students.")
+            grades = self.grading_service.bulk_compute_class_grades(self.selected_offering_id)
+            statuses = [GradeCalculator.status_of(g) for g in grades]
+            counts = ", ".join(f"{name}: {statuses.count(name)}" for name in (COMPLETE, MIDTERM_ONLY, INCOMPLETE))
+            show_message(self, messagebox.showinfo, "Bulk Calculation",
+                         f"Successfully computed grades for {len(grades)} student{'' if len(grades) == 1 else 's'}.\n{counts}")
             self.load_grades_table()
         except ValueError as error:
             show_message(self, messagebox.showwarning, "Grade Calculation", str(error))
@@ -420,35 +401,37 @@ class ScoreGradingTab(ttk.Frame):
             show_message(self, messagebox.showerror, "Database Error", "Could not save grades. Check the database connection.")
 
     def grade_text(self, value):
-        return "Incomplete" if value is None else f"{value:.2f}"
+        return INCOMPLETE if value is None else f"{value:.2f}"
+
+    def period_text(self, value, period_order):
+        # a period with no components at all is "N/A"; one with a missing score or weight is "Incomplete"
+        if value is None and not self.grading_service.period_has_components(period_order):
+            return NOT_SET
+        return self.grade_text(value)
 
     def load_grades_table(self):
+        # rows come from the saved GRADE table, so the screen always matches the database
         for r in self.tree_grades.get_children():
             self.tree_grades.delete(r)
         if not self.selected_offering_id:
             return
-
         enrollments = self.enrollment_service.get_class_enrollments(self.selected_offering_id)
-        grades = self.grading_service.get_class_grades(self.selected_offering_id)
-        grade_map = {g.enrollment_id: g for g in grades}
-
+        grade_map = {g.enrollment_id: g for g in self.grading_service.get_class_grades(self.selected_offering_id)}
         for index, en in enumerate(enrollments):
-            g = grade_map.get(en.enrollment_id)
-            if g:
-                mid_txt = self.grade_text(g.midterm_grade)
-                mid_gp = self.grade_text(g.midterm_equiv)
-                fin_txt = self.grade_text(g.finals_grade)
-                # finals grade point is not stored in GRADE, so convert it with the shared scale
-                fin_gp = self.grade_text(self.grading_service.calculator.to_grade_point(g.finals_grade))
-                ovr_txt = self.grade_text(g.overall_grade)
-                rating = self.grade_text(g.final_equiv)
-                rem = g.remarks or ""
-            else:
-                mid_txt = mid_gp = fin_txt = fin_gp = ovr_txt = rating = rem = "Incomplete"
+            self.tree_grades.insert("", "end", tags=("even" if index % 2 == 0 else "odd",),
+                                    values=(en.enrollment_id, en.student_name, *self.grade_row(grade_map.get(en.enrollment_id))))
 
-            self.tree_grades.insert("", "end", tags=("even" if index % 2 == 0 else "odd",), values=(
-                en.enrollment_id, en.student_name, mid_txt, mid_gp, fin_txt, fin_gp, ovr_txt, rating, rem
-            ))
+    def grade_row(self, g):
+        if g is None:
+            return [INCOMPLETE] * 8
+        # the finals grade point is not stored in GRADE, so convert it with the shared scale
+        finals_point = GradeCalculator.to_grade_point(g.finals_grade)
+        return [
+            self.period_text(g.midterm_grade, MIDTERM_ORDER), self.grade_text(g.midterm_equiv),
+            self.period_text(g.finals_grade, FINALS_ORDER), self.grade_text(finals_point),
+            self.grade_text(g.overall_grade), self.grade_text(g.final_equiv),
+            g.remarks or INCOMPLETE, GradeCalculator.status_of(g),
+        ]
 
     def clear_score_form(self):
         self.entry_raw_score.delete(0, "end")

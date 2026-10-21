@@ -3,9 +3,13 @@
 from db import get_connection
 from models import GradeComponent
 from repositories.base_repository import Repository
+from repositories.audit_repository import AuditRepository
 
 
 class GradeComponentRepository(Repository):
+    def __init__(self):
+        self.audit = AuditRepository()
+
     def _row_to_component(self, row, detailed=False):
         gc = GradeComponent(
             component_id=str(row[0]),
@@ -79,27 +83,6 @@ class GradeComponentRepository(Repository):
         finally:
             conn.close()
 
-    def find_by_offering_and_period(self, offering_id, period_id):
-        conn = get_connection()
-        try:
-            cur = conn.cursor()
-            cur.execute(
-                "SELECT gc.component_id, gc.period_id, "
-                "gc.name, gc.type, gc.max_score, gc.description, "
-                "gp.name AS period_name, gp_perc.percentage "
-                "FROM grade_components gc "
-                "JOIN grading_periods gp ON gc.period_id = gp.period_id "
-                "JOIN grade_percentages gp_perc ON gc.component_id = gp_perc.component_id "
-                "WHERE gp_perc.class_id = %s AND gc.period_id = %s "
-                "ORDER BY gc.type, gc.name",
-                (offering_id, period_id)
-            )
-            rows = cur.fetchall()
-            cur.close()
-            return [self._row_to_component(r, detailed=True) for r in rows]
-        finally:
-            conn.close()
-
     def save(self, component):
         conn = get_connection()
         try:
@@ -132,15 +115,24 @@ class GradeComponentRepository(Repository):
         finally:
             conn.close()
 
-    def delete_by_id(self, component_id):
+    def delete_by_id(self, component_id, changed_by=None):
+        # the component's weights in every class go in the same transaction, each one audited
         conn = get_connection()
         try:
-            cur = conn.cursor()
-            cur.execute("DELETE FROM grade_components WHERE component_id = %s", (component_id,))
-            affected = cur.rowcount
+            with conn.cursor() as cur:
+                cur.execute("SELECT percentage_id, row_to_json(w) FROM grade_percentages w "
+                            "WHERE component_id = %s FOR UPDATE", (component_id,))
+                for percentage_id, old_value in cur.fetchall():
+                    cur.execute("DELETE FROM grade_percentages WHERE percentage_id = %s", (percentage_id,))
+                    self.audit.log_change(cur, "GRADE_PERCENTAGE", percentage_id, "DELETE", old_value, None, changed_by)
+                cur.execute("SELECT row_to_json(c) FROM grade_components c WHERE component_id = %s FOR UPDATE",
+                            (component_id,))
+                row = cur.fetchone()
+                if row:
+                    cur.execute("DELETE FROM grade_components WHERE component_id = %s", (component_id,))
+                    self.audit.log_change(cur, "GRADE_COMPONENT", component_id, "DELETE", row[0], None, changed_by)
             conn.commit()
-            cur.close()
-            return affected > 0
+            return row is not None
         except Exception:
             conn.rollback()
             raise

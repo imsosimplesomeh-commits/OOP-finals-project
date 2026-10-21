@@ -99,8 +99,9 @@ class ClassEnrollmentTab(ttk.Frame):
         self.entry_sy.grid(row=3, column=1, padx=8, pady=(0, 8), sticky="ew")
 
         ttk.Label(form, text="Semester:").grid(row=3, column=2, padx=8, pady=(0, 8), sticky="w")
-        self.cb_semester = ttk.Combobox(form, values=["1st Semester", "2nd Semester", "Summer"], width=26, state="readonly")
-        self.cb_semester.set("1st Semester")
+        # stored as "1st" / "2nd" (SPEC appendix); reports print "1st Semester"
+        self.cb_semester = ttk.Combobox(form, values=["1st", "2nd", "Summer"], width=26, state="readonly")
+        self.cb_semester.set("1st")
         self.cb_semester.grid(row=3, column=3, padx=8, pady=(0, 8), sticky="ew")
 
     def _build_class_buttons(self, top_frame):
@@ -235,19 +236,21 @@ class ClassEnrollmentTab(ttk.Frame):
     def _build_component_table(self, left_frame):
         comp_table = ttk.Frame(left_frame)
         comp_table.pack(fill="both", expand=True, padx=8, pady=8)
-        cols_c = ("id", "period", "name", "type", "max_score")
+        cols_c = ("id", "period", "name", "type", "max_score", "weight")
         self.tree_comps = ttk.Treeview(comp_table, columns=cols_c, show="headings", height=4)
         style_table(self.tree_comps)
         self.tree_comps.heading("id", text="ID")
         self.tree_comps.heading("period", text="Period")
-        self.tree_comps.heading("name", text="Component Name")
+        self.tree_comps.heading("name", text="Component")
         self.tree_comps.heading("type", text="Category")
         self.tree_comps.heading("max_score", text="Max Score")
+        self.tree_comps.heading("weight", text="Weight (%)")
         self.tree_comps.column("id", width=0, stretch=False)
         self.tree_comps.column("period", width=70)
         self.tree_comps.column("name", width=210)
         self.tree_comps.column("type", width=80)
         self.tree_comps.column("max_score", width=70)
+        self.tree_comps.column("weight", width=80)
         comp_scroll = ttk.Scrollbar(comp_table, orient="vertical", command=self.tree_comps.yview)
         self.tree_comps.configure(yscrollcommand=comp_scroll.set)
         comp_scroll.pack(side="right", fill="y")
@@ -460,19 +463,15 @@ class ClassEnrollmentTab(ttk.Frame):
             for widget in self.weight_form.winfo_children():
                 widget.destroy()
             self.weight_entries = {}
-            for row in self.tree_comps.get_children():
-                self.tree_comps.delete(row)
             components = self.config_service.get_components()
-            for index, component in enumerate(components):
-                self.tree_comps.insert("", "end", tags=("even" if index % 2 == 0 else "odd",), values=(
-                    component.component_id, component.period_name, component.name,
-                    component.type, component.max_score,
-                ))
+            saved = {}
+            if self.selected_offering_id:
+                saved = {w.component_id: w.percentage for w in self.config_service.get_weights(self.selected_offering_id)}
+            self._load_component_table(components, saved)
             period_id = self.period_map.get(self.cb_weight_period.get())
             if not self.selected_offering_id:
                 self.lbl_weight_total.config(text="Select a class to set its weights.")
                 return
-            saved = {w.component_id: w.percentage for w in self.config_service.get_weights(self.selected_offering_id)}
             for component in components:
                 if component.period_id != period_id:
                     continue
@@ -486,6 +485,25 @@ class ClassEnrollmentTab(ttk.Frame):
             self.lbl_weight_total.config(text=self.config_service.weight_summary(self.selected_offering_id))
         except Exception:
             show_message(self, messagebox.showerror, "Database Error", "Could not load records. Check the database connection.")
+
+    def _load_component_table(self, components, saved):
+        # one row per component with the selected class's weight, then a total row per period
+        for row in self.tree_comps.get_children():
+            self.tree_comps.delete(row)
+        index = 0
+        for period_name in dict.fromkeys(c.period_name for c in components):
+            period_components = [c for c in components if c.period_name == period_name]
+            for component in period_components:
+                weight = saved.get(component.component_id)
+                self.tree_comps.insert("", "end", tags=("even" if index % 2 == 0 else "odd",), values=(
+                    component.component_id, period_name, component.name, component.type,
+                    f"{component.max_score:g}", "-" if weight is None else f"{weight:.2f}",
+                ))
+                index += 1
+            weights = [saved[c.component_id] for c in period_components if c.component_id in saved]
+            total = f"{sum(weights):.2f}%" if weights else "-"
+            self.tree_comps.insert("", "end", tags=("total",), values=("", period_name, f"{period_name} total", "", "", total))
+        self.tree_comps.tag_configure("total", font=("Consolas", 9, "bold"))
 
     def save_weight(self):
         try:
@@ -536,13 +554,14 @@ class ClassEnrollmentTab(ttk.Frame):
 
     def delete_component(self):
         selected = self.tree_comps.selection()
-        if not selected:
-            show_message(self, messagebox.showwarning, "No Selection", "Select a component to delete.")
+        component_id = self.tree_comps.item(selected[0], "values")[0] if selected else ""
+        if not component_id:
+            show_message(self, messagebox.showwarning, "No Selection", "Select a component row to delete.")
             return
-        if not messagebox.askyesno("Confirm Delete", "Delete this component?"):
+        if not messagebox.askyesno("Confirm Delete", "Delete this component? Its weights in every class are removed too."):
             return
         try:
-            self.config_service.delete_component(self.tree_comps.item(selected[0], "values")[0])
+            self.config_service.delete_component(component_id)
             self.load_weights_and_components()
             show_message(self, messagebox.showinfo, "Success", "Component deleted.")
         except ValueError as error:

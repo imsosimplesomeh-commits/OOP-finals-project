@@ -154,13 +154,15 @@ class ScoreGradingTab(ttk.Frame):
         right_frame = ttk.LabelFrame(main_split, text="Grades", style="Section.TLabelframe")
         right_frame.pack(side="right", fill="both", expand=True, padx=(8, 0))
 
-        cols_g = ("enrollment_id", "student_name", "midterm", "finals", "final_grade", "rating", "remarks")
+        cols_g = ("enrollment_id", "student_name", "midterm", "mid_gp", "finals", "fin_gp", "final_grade", "rating", "remarks")
         self.tree_grades = ttk.Treeview(right_frame, columns=cols_g, show="headings", height=14)
         style_table(self.tree_grades)
         self.tree_grades.heading("enrollment_id", text="Enrollment ID")
         self.tree_grades.heading("student_name", text="Student Name")
         self.tree_grades.heading("midterm", text="Midterm")
+        self.tree_grades.heading("mid_gp", text="MG")
         self.tree_grades.heading("finals", text="Finals")
+        self.tree_grades.heading("fin_gp", text="Finals GP")
         self.tree_grades.heading("final_grade", text="Overall Final")
         self.tree_grades.heading("rating", text="Rating")
         self.tree_grades.heading("remarks", text="Remarks")
@@ -168,7 +170,9 @@ class ScoreGradingTab(ttk.Frame):
         self.tree_grades.column("enrollment_id", width=0, stretch=False)
         self.tree_grades.column("student_name", width=120)
         self.tree_grades.column("midterm", width=75)
+        self.tree_grades.column("mid_gp", width=55)
         self.tree_grades.column("finals", width=75)
+        self.tree_grades.column("fin_gp", width=70)
         self.tree_grades.column("final_grade", width=110)
         self.tree_grades.column("rating", width=85, minwidth=85, stretch=False)
         self.tree_grades.column("remarks", width=85)
@@ -418,15 +422,18 @@ class ScoreGradingTab(ttk.Frame):
             g = grade_map.get(en.enrollment_id)
             if g:
                 mid_txt = self.grade_text(g.midterm_grade)
+                mid_gp = self.grade_text(g.midterm_equiv)
                 fin_txt = self.grade_text(g.finals_grade)
+                # finals grade point is not stored in GRADE, so convert it with the shared scale
+                fin_gp = self.grade_text(self.grading_service.calculator.to_grade_point(g.finals_grade))
                 ovr_txt = self.grade_text(g.overall_grade)
                 rating = self.grade_text(g.final_equiv)
                 rem = g.remarks or ""
             else:
-                mid_txt, fin_txt, ovr_txt, rating, rem = "Incomplete", "Incomplete", "Incomplete", "Incomplete", "Incomplete"
+                mid_txt = mid_gp = fin_txt = fin_gp = ovr_txt = rating = rem = "Incomplete"
 
             self.tree_grades.insert("", "end", tags=("even" if index % 2 == 0 else "odd",), values=(
-                en.enrollment_id, en.student_name, mid_txt, fin_txt, ovr_txt, rating, rem
+                en.enrollment_id, en.student_name, mid_txt, mid_gp, fin_txt, fin_gp, ovr_txt, rating, rem
             ))
 
     def clear_score_form(self):

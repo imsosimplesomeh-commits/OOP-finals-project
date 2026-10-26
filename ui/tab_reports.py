@@ -8,7 +8,7 @@ from services.class_service import ClassService
 from services.student_service import StudentService
 from services import ReportService
 from ui.report_document import report_text, export_pdf
-from ui.theme import style_table, add_message_bar, show_message, form_panel
+from ui.theme import style_table, style_text, add_message_bar, show_message, form_panel
 
 
 class ReportsTab(ttk.Frame):
@@ -79,20 +79,13 @@ class ReportsTab(ttk.Frame):
         self.doc_frame = ttk.Frame(self.nb_views, style="Page.TFrame")
         self.nb_views.add(self.doc_frame, text="Document View")
 
-        # Text has no ttk equivalent; use the shared table colors.
-        style = ttk.Style(self)
+        # Text has no ttk equivalent; style_text gives it the shared table colors.
         self.txt_preview = tk.Text(
             self.doc_frame, wrap="none", font=("Consolas", 10),
-            bg=style.lookup("Treeview", "background"),
-            fg=style.lookup("Treeview", "foreground"),
-            insertbackground=style.lookup("Treeview", "foreground"),
-            selectbackground=style.lookup("Treeview", "background", ("selected",)),
-            selectforeground=style.lookup("Treeview", "foreground", ("selected",)),
             relief="flat", borderwidth=0, padx=14, pady=12,
             highlightthickness=0,
-            highlightbackground=style.lookup("TEntry", "bordercolor"),
-            highlightcolor=style.lookup("TEntry", "bordercolor", ("focus",)),
         )
+        style_text(self.txt_preview)
         scroll_y = ttk.Scrollbar(self.doc_frame, orient="vertical", command=self.txt_preview.yview)
         scroll_x = ttk.Scrollbar(self.doc_frame, orient="horizontal", command=self.txt_preview.xview)
         self.txt_preview.configure(yscrollcommand=scroll_y.set, xscrollcommand=scroll_x.set)

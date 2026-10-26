@@ -4,7 +4,7 @@ Rehearsal sheet for the live demonstration. Run the cases top to bottom in this 
 
 ## Before you start
 
-1. Empty the database: click **Reset Database** (bottom right) and answer Yes, or run `psql -U postgres -d Modelo_CSPC103 -f reset_for_demo.sql`. Do not run `seed_data.py`.
+1. Empty the database: click **Reset Database** (bottom right) and answer Yes, or run `psql -U postgres -d Modelo_CSPC103 -f reset_for_demo.sql`. Do not run `load_demo_data.py`.
 2. Start the app: `python main.py`.
 3. Open pgAdmin on `Modelo_CSPC103` (Schemas > public > Tables) so the tester can watch each table.
 4. Tabs: **I Records** (Students / Teachers / Subjects), **II Classes**, **III Grades**, **IV Reports**, **V Audit Log**. To edit or delete, click the row first.

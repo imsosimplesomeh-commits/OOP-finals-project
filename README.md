@@ -31,7 +31,7 @@ A desktop app made with Python, Tkinter, and PostgreSQL. It manages students, te
    python main.py
 ```
 
-`seed_data.py` adds sample data. Skip it when running the CRUD test cases. The Reset Database button at the bottom right empties all tables, so you can start the test cases clean.
+To open the app with the finished test-run data, click Reset Database, close the app, then run `python load_demo_data.py` (it only loads `Modelo_CSPC103` and only when the tables are empty). Skip it when running the CRUD test cases. The Reset Database button at the bottom right empties all tables, so you can start the test cases clean.
 
 ## Testing
 

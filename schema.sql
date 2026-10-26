@@ -100,9 +100,9 @@ CREATE TABLE IF NOT EXISTS grade_component_scores (
 CREATE TABLE IF NOT EXISTS grades (
     grade_id SERIAL PRIMARY KEY,
     enrollment_id INTEGER NOT NULL UNIQUE REFERENCES enrollments(enrollment_id) ON DELETE RESTRICT,
-    midterm_grade NUMERIC(5, 2),
-    finals_grade NUMERIC(5, 2),
-    overall_grade NUMERIC(5, 2),
+    midterm_grade NUMERIC(9, 6),
+    finals_grade NUMERIC(9, 6),
+    overall_grade NUMERIC(9, 6),
     midterm_equiv NUMERIC(3, 2),
     final_equiv NUMERIC(3, 2),
     remarks VARCHAR(50),
@@ -120,3 +120,10 @@ CREATE TABLE IF NOT EXISTS audit_log (
     changed_by TEXT NOT NULL,
     changed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- older databases made before this change: widen the three percentage columns
+-- (safe to run again; it keeps the rows). Needed so 96.995 still converts to 1.25, not 1.00.
+ALTER TABLE grades
+    ALTER COLUMN midterm_grade TYPE NUMERIC(9, 6),
+    ALTER COLUMN finals_grade TYPE NUMERIC(9, 6),
+    ALTER COLUMN overall_grade TYPE NUMERIC(9, 6);

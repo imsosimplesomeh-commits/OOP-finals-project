@@ -2,10 +2,9 @@
 
 from db import get_connection
 from models import GradingPeriod
-from repositories.base_repository import Repository
 
 
-class GradingPeriodRepository(Repository):
+class GradingPeriodRepository:
     def _row_to_period(self, row):
         return GradingPeriod(
             period_id=str(row[0]),

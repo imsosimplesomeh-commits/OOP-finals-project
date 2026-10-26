@@ -2,10 +2,9 @@
 
 from db import get_connection
 from models import Enrollment
-from repositories.base_repository import Repository
 
 
-class EnrollmentRepository(Repository):
+class EnrollmentRepository:
     def _row_to_enrollment(self, row, detailed=False):
         e = Enrollment(
             enrollment_id=str(row[0]),

@@ -2,10 +2,9 @@
 
 from db import get_connection
 from models import Subject
-from repositories.base_repository import Repository
 
 
-class SubjectRepository(Repository):
+class SubjectRepository:
     def _row_to_subject(self, row):
         return Subject(
             subject_id=str(row[0]),

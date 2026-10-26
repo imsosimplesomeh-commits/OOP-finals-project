@@ -1,6 +1,6 @@
 # tab_score_grading.py - Tab for score entry and grade calculations
 
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, font as tkfont
 
 from models import GradeComponentScore
 from services.grading_service import GradingService
@@ -11,6 +11,10 @@ from services.configuration_service import ConfigurationService
 from services.grade_calculator import GradeCalculator, COMPLETE, MIDTERM_ONLY, INCOMPLETE, NOT_SET
 from services.grading_service import MIDTERM_ORDER, FINALS_ORDER
 from ui.theme import style_table, add_message_bar, show_message, form_panel
+
+# Raw Scores grid: names wider than this (pixels) wrap so all columns fit at the default window size
+MAX_HEADING_WIDTH = 150
+RAW_COLUMN_PADDING = 16
 
 
 class ScoreGradingTab(ttk.Frame):
@@ -39,11 +43,27 @@ class ScoreGradingTab(ttk.Frame):
         self.message_label = add_message_bar(self)
         self._build_filters()
 
-        main_split = ttk.Frame(self, style="Page.TFrame")
-        main_split.pack(fill="both", expand=True, padx=8, pady=8)
+        # score entry and the read-only raw scores grid share the space below the filters
+        views = ttk.Notebook(self)
+        views.pack(fill="both", expand=True, padx=8, pady=8)
+        main_split = ttk.Frame(views, style="Page.TFrame")
+        views.add(main_split, text="Score Entry")
 
         self._build_score_section(main_split)
         self._build_grade_table(main_split)
+        self._build_raw_scores(views)
+
+    def _build_raw_scores(self, views):
+        # like the Raw scores table in the checklist: one row per student, one column per component
+        frame = ttk.Frame(views, style="Page.TFrame")
+        views.add(frame, text="Raw Scores")
+        ttk.Style(self).configure("RawScores.Treeview.Heading", justify="center")
+        self.tree_raw = ttk.Treeview(frame, show="headings", height=12, style="RawScores.Treeview")
+        style_table(self.tree_raw)
+        scroll_x = ttk.Scrollbar(frame, orient="horizontal", command=self.tree_raw.xview)
+        self.tree_raw.configure(xscrollcommand=scroll_x.set)
+        self.tree_raw.pack(fill="both", expand=True, padx=8, pady=(8, 0))
+        scroll_x.pack(fill="x", padx=8, pady=(0, 8))
 
     def _build_filters(self):
         top_bar = form_panel(self, text="Class and Grade Formula")
@@ -201,6 +221,7 @@ class ScoreGradingTab(ttk.Frame):
                 self.load_class_students()
                 self.load_class_components()
                 self.load_grades_table()
+                self.load_raw_scores()
         except Exception:
             show_message(self, messagebox.showerror, "Database Error", "Could not load records. Check the database connection.")
 
@@ -213,6 +234,7 @@ class ScoreGradingTab(ttk.Frame):
             self.load_class_students()
             self.load_class_components()
             self.load_grades_table()
+            self.load_raw_scores()
         except Exception:
             show_message(self, messagebox.showerror, "Database Error", "Could not load records. Check the database connection.")
 
@@ -338,6 +360,7 @@ class ScoreGradingTab(ttk.Frame):
             self.score_service.save(score)
             self.load_student_scores()
             self.load_grades_table()
+            self.load_raw_scores()
             show_message(self, messagebox.showinfo, "Success", "Score saved.")
         except ValueError as error:
             show_message(self, messagebox.showwarning, "Invalid Score", str(error))
@@ -356,6 +379,7 @@ class ScoreGradingTab(ttk.Frame):
             self.score_service.delete(score_id)
             self.load_student_scores()
             self.load_grades_table()
+            self.load_raw_scores()
             self.clear_score_form()
             show_message(self, messagebox.showinfo, "Success", "Score deleted.")
         except ValueError as error:
@@ -399,6 +423,44 @@ class ScoreGradingTab(ttk.Frame):
             show_message(self, messagebox.showwarning, "Grade Calculation", str(error))
         except Exception:
             show_message(self, messagebox.showerror, "Database Error", "Could not save grades. Check the database connection.")
+
+    def load_raw_scores(self):
+        # read-only view of saved scores; a missing score shows "-", never 0
+        self.tree_raw.delete(*self.tree_raw.get_children())
+        components = self.config_service.get_class_components(self.selected_offering_id) if self.selected_offering_id else []
+        enrollments = self.enrollment_service.get_class_enrollments(self.selected_offering_id) if self.selected_offering_id else []
+        rows = []
+        for en in enrollments:
+            saved = {score.component_id: score.score for score, _ in self.score_service.get_scores(en.enrollment_id)}
+            rows.append([en.student_name] + [f"{saved[c.component_id]:g}" if c.component_id in saved else "-"
+                                             for c in components])
+        style = ttk.Style(self)
+        heading_font = tkfont.Font(font=style.lookup("Treeview.Heading", "font"))
+        headings = [["Student"]] + [
+            self._wrap_name(c.name, heading_font) + [f"(/{c.max_score:g} - {self.weight_text(c.percentage_value)})"]
+            for c in components
+        ]
+        self.tree_raw["columns"] = ["student"] + [c.component_id for c in components]
+        # Tk sizes the header row from column #0, so its blank lines make room for the tallest heading
+        self.tree_raw.heading("#0", text="\n" * (max(len(lines) for lines in headings) - 1))
+        body_font = tkfont.Font(font=style.lookup("Treeview", "font"))
+        for index, (column, lines) in enumerate(zip(self.tree_raw["columns"], headings)):
+            # as wide as the widest heading line or cell, so no heading is cut off
+            widest = max([heading_font.measure(line) for line in lines] + [body_font.measure(row[index]) for row in rows])
+            self.tree_raw.heading(column, text="\n".join(lines))
+            self.tree_raw.column(column, width=widest + RAW_COLUMN_PADDING, minwidth=widest + RAW_COLUMN_PADDING,
+                                 stretch=False, anchor="w" if index == 0 else "center")
+        for index, row in enumerate(rows):
+            self.tree_raw.insert("", "end", tags=("even" if index % 2 == 0 else "odd",), values=row)
+
+    @staticmethod
+    def _wrap_name(name, font):
+        # a long name is split at the space that gives the shortest lines, so the grid fits the default window
+        if font.measure(name) <= MAX_HEADING_WIDTH or " " not in name:
+            return [name]
+        words = name.split(" ")
+        splits = [[" ".join(words[:i]), " ".join(words[i:])] for i in range(1, len(words))]
+        return min(splits, key=lambda lines: max(font.measure(line) for line in lines))
 
     def grade_text(self, value):
         return INCOMPLETE if value is None else f"{value:.2f}"

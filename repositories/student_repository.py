@@ -2,10 +2,9 @@
 
 from db import get_connection
 from models import Student
-from repositories.base_repository import Repository
 
 
-class StudentRepository(Repository):
+class StudentRepository:
     def _row_to_student(self, row):
         return Student(
             student_id=str(row[0]),

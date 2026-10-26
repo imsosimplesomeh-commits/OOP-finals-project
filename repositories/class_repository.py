@@ -2,10 +2,9 @@
 
 from db import get_connection
 from models import ClassOffering
-from repositories.base_repository import Repository
 
 
-class ClassRepository(Repository):
+class ClassRepository:
     def _row_to_offering(self, row, detailed=False):
         offering = ClassOffering(
             class_id=str(row[0]),

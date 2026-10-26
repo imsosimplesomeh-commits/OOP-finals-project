@@ -1,0 +1,2 @@
+# store text files with LF in git, whatever the editor on Windows uses
+* text=auto

@@ -10,7 +10,7 @@ from ui.tab_class_enrollment import ClassEnrollmentTab
 from ui.tab_score_grading import ScoreGradingTab
 from ui.tab_reports import ReportsTab
 from ui.tab_audit import AuditLogTab
-from ui.theme import apply_theme
+from ui.theme import apply_theme, toggle_theme
 
 
 class StudentGradeManagementApp(tk.Tk):
@@ -71,6 +71,8 @@ class StudentGradeManagementApp(tk.Tk):
         self.lbl_status.pack(side="left")
         ttk.Button(status_bar, text="Reset Database",
                    command=self._reset_database).pack(side="right")
+        ttk.Button(status_bar, text="Light / Dark",
+                   command=lambda: toggle_theme(self)).pack(side="right", padx=(0, 8))
         ttk.Label(status_bar, text="CSPC 103 | NDMU CEAC",
                   style="Status.TLabel").pack(side="right", padx=16)
 

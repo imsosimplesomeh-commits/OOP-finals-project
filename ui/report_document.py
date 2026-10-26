@@ -1,5 +1,7 @@
 from xml.sax.saxutils import escape
 
+from ui.theme import PDF_HEADER
+
 
 def report_text(data):
     widths = [len(column) for column in data["columns"]]
@@ -38,7 +40,7 @@ def export_pdf(data, path):
         ratios = [0.08, 0.62, 0.30]
     table = Table(cells, colWidths=[doc.width * ratio for ratio in ratios], repeatRows=1)
     table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#eeeeee")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(PDF_HEADER)),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("TOPPADDING", (0, 0), (-1, -1), 6),

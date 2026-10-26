@@ -9,11 +9,11 @@ A desktop app made with Python, Tkinter, and PostgreSQL. It manages students, te
 
 - Python 3.10 or higher
 - PostgreSQL running on port 5432
-- A database named `Modelo_CSPC103`
+- A database named `Modelo_CSPC103` (created automatically on first start)
 
 ## How to Run
 
-1. Create the database once (pgAdmin, or `psql -U postgres -c "CREATE DATABASE \"Modelo_CSPC103\";"`).
+1. Nothing to create by hand: the app (or `python db.py`) creates the database `Modelo_CSPC103` if it is missing.
 2. Install the packages:
 ```
    pip install -r requirements.txt
@@ -38,6 +38,10 @@ A desktop app made with Python, Tkinter, and PostgreSQL. It manages students, te
 - Unit tests for the grade math (SPEC numbers, both weight sets, PATHFIT example, scale boundaries, Midterm-only cases):
 ```
    python -m unittest discover tests
+```
+- `rehearse_52.py` runs the checklist data in order on its own practice database (`Modelo_CSPC103_rehearsal`, never your demo one), prints PASS/FAIL per case and compares the row counts with the Appendix:
+```
+   python rehearse_52.py
 ```
 - `TEST_RUN_GUIDE.md` lists all 52 test cases in demo order with the data to type.
 - `verify_appendix.sql` checks the database against the SPEC appendix after the full run (every line should say PASS):

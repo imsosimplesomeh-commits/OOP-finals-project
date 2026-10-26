@@ -2,11 +2,10 @@
 
 from db import get_connection
 from models import GradePercentage
-from repositories.base_repository import Repository
 from repositories.audit_repository import AuditRepository
 
 
-class GradePercentageRepository(Repository):
+class GradePercentageRepository:
     def __init__(self):
         self.audit = AuditRepository()
 

@@ -67,7 +67,7 @@ def seed_all():
             schedule="MWF 10:30-11:30 AM",
             section="BSCS-2A",
             school_year="2026-2027",
-            semester="1st Semester",
+            semester="1st",
             room="CompLab 3",
             subject_id=cs103.subject_id,
             teacher_id=t1.teacher_id
@@ -93,7 +93,7 @@ def seed_all():
             start_date=date(2026, 8, 17),
             end_date=date(2026, 10, 16),
             school_year="2026-2027",
-            semester="1st Semester"
+            semester="1st"
         ))
     else:
         midterm_p.start_date = date(2026, 8, 17)
@@ -107,7 +107,7 @@ def seed_all():
             start_date=date(2026, 10, 19),
             end_date=date(2026, 12, 18),
             school_year="2026-2027",
-            semester="1st Semester"
+            semester="1st"
         ))
     else:
         finals_p.start_date = date(2026, 10, 19)

@@ -2,6 +2,7 @@
 
 import os
 import psycopg2
+from psycopg2 import sql
 
 DB_CONFIG = {
     "host": os.environ.get("PGHOST", "localhost"),
@@ -20,8 +21,24 @@ def get_connection():
 SCHEMA_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "schema.sql")
 
 
+def create_database_if_missing():
+    # connect to the default "postgres" database, then create ours when it is not there yet
+    server = dict(DB_CONFIG, dbname="postgres")
+    conn = psycopg2.connect(**server)
+    conn.autocommit = True  # CREATE DATABASE cannot run inside a transaction
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (DB_CONFIG["dbname"],))
+            if cur.fetchone() is None:
+                # a database name cannot be a %s value, so sql.Identifier quotes it safely
+                cur.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(DB_CONFIG["dbname"])))
+    finally:
+        conn.close()
+
+
 def init_db():
-    # create any missing tables from schema.sql; existing tables and rows are kept
+    # create the database and any missing tables from schema.sql; existing rows are kept
+    create_database_if_missing()
     with open(SCHEMA_FILE, encoding="utf-8") as schema:
         ddl = schema.read()
     conn = get_connection()
